@@ -19,6 +19,13 @@ if not api_key:
 else:
     client = OpenAI(api_key=api_key)
 
+# Common spending categories (defined globally for reuse)
+CATEGORIES = [
+    "Groceries", "Dining & Takeout", "Bills & Utilities", 
+    "Transport", "Shopping", "Entertainment", 
+    "Health & Fitness", "Travel", "Other"
+]
+
 # AI categorization function with summary
 def categorize_transactions_with_summary(df):
     """Batch categorize transactions and generate summary in one call"""
@@ -26,12 +33,7 @@ def categorize_transactions_with_summary(df):
     if not client:
         return None, None
     
-    # Common spending categories
-    categories_list = [
-        "Groceries", "Dining & Takeout", "Bills & Utilities", 
-        "Transport", "Shopping", "Entertainment", 
-        "Health & Fitness", "Travel", "Other"
-    ]
+    categories_list = CATEGORIES
     
     # Prepare batch of transactions
     batch_size = 15
@@ -251,14 +253,38 @@ else:
         
         with col1:
             st.markdown("### 💳 Categorized Transactions")
-            st.dataframe(df, width='stretch', height=400)
+            
+            # Use data_editor to allow manual category changes
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "category": st.column_config.SelectboxColumn(
+                        "Category",
+                        help="Select category for this transaction",
+                        width="medium",
+                        options=CATEGORIES,
+                        required=True,
+                    )
+                },
+                width='stretch',
+                height=400,
+                hide_index=False,
+                key="transaction_editor"
+            )
+            
+            # Update session state if data was edited
+            if not edited_df.equals(df):
+                st.session_state.transactions = edited_df
         
         with col2:
             st.markdown("### 📈 Spending by Category")
             
-            # Calculate spending by category
-            category_spending = df.groupby('category')['amount'].sum().reset_index()
+            # Calculate spending by category (use edited_df to reflect manual changes)
+            category_spending = edited_df.groupby('category')['amount'].sum().reset_index()
             category_spending = category_spending.sort_values('amount', ascending=False)
+            
+            # Pink/burgundy color palette matching the theme
+            colors = ['#832632', '#a13344', '#be4056', '#d94d68', '#e2999b', '#f0b8ba', '#f5d0d1', '#fae8e9']
             
             # Create pie chart
             fig = px.pie(
@@ -266,10 +292,30 @@ else:
                 values='amount', 
                 names='category',
                 title='',
-                color_discrete_sequence=px.colors.sequential.RdBu
+                color_discrete_sequence=colors
             )
-            fig.update_traces(textposition='inside', textinfo='percent+label')
-            fig.update_layout(showlegend=False, height=400)
+            fig.update_traces(
+                textposition='auto',
+                textinfo='percent+label',
+                textfont_size=12,
+                marker=dict(line=dict(color='#FFFFFF', width=2))
+            )
+            fig.update_layout(
+                showlegend=True,
+                height=400,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.02
+                ),
+                font=dict(
+                    family="Arial, sans-serif",
+                    size=12,
+                    color="#52181e"
+                )
+            )
             
             st.plotly_chart(fig, use_container_width=True)
         
