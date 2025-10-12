@@ -283,8 +283,8 @@ else:
             category_spending = edited_df.groupby('category')['amount'].sum().reset_index()
             category_spending = category_spending.sort_values('amount', ascending=False)
             
-            # Pink/burgundy color palette matching the theme
-            colors = ['#832632', '#a13344', '#be4056', '#d94d68', '#e2999b', '#f0b8ba', '#f5d0d1', '#fae8e9']
+            # Pink/burgundy color palette matching the theme (9 colors for 9 categories)
+            colors = ['#832632', '#a13344', '#be4056', '#d94d68', '#e2999b', '#f0b8ba', '#f5d0d1', '#fae8e9', '#c96876']
             
             # Create pie chart
             fig = px.pie(
