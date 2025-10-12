@@ -11,6 +11,123 @@ st.set_page_config(
     layout="wide"
 )
 
+# Check for OpenAI API key
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    st.error("⚠️ OpenAI API key not found. Please add OPENAI_API_KEY to your Replit Secrets.")
+    client = None
+else:
+    client = OpenAI(api_key=api_key)
+
+# AI categorization function with summary
+def categorize_transactions_with_summary(df):
+    """Batch categorize transactions and generate summary in one call"""
+    
+    if not client:
+        return None, None
+    
+    # Common spending categories
+    categories_list = [
+        "Groceries", "Dining & Takeout", "Bills & Utilities", 
+        "Transport", "Shopping", "Entertainment", 
+        "Health & Fitness", "Travel", "Other"
+    ]
+    
+    # Prepare batch of transactions
+    batch_size = 15
+    all_results = []
+    summary = None
+    
+    for i in range(0, len(df), batch_size):
+        batch = df.iloc[i:i+batch_size]
+        
+        # Create transaction list for prompt
+        transactions_text = "\n".join([
+            f"{idx}. {row['payee']} - £{row['amount']}" 
+            for idx, row in batch.iterrows()
+        ])
+        
+        # Determine if this is the last batch
+        is_last_batch = (i + batch_size) >= len(df)
+        
+        if is_last_batch:
+            # Last batch: include summary request
+            prompt = f"""Analyze these bank transactions and assign each one to the most appropriate category.
+
+Categories: {', '.join(categories_list)}
+
+Transactions (from final batch of {len(df)} total):
+{transactions_text}
+
+Return a JSON object with this exact structure:
+{{
+  "categorizations": [
+    {{"index": <transaction_index>, "category": "<category_name>"}},
+    ...
+  ],
+  "summary": "A brief 2-paragraph friendly summary of overall spending patterns, main areas, and gentle optimization suggestions"
+}}"""
+        else:
+            # Regular batch: just categorizations
+            prompt = f"""Analyze these bank transactions and assign each one to the most appropriate category.
+
+Categories: {', '.join(categories_list)}
+
+Transactions:
+{transactions_text}
+
+Return a JSON object with this exact structure:
+{{
+  "categorizations": [
+    {{"index": <transaction_index>, "category": "<category_name>"}},
+    ...
+  ]
+}}"""
+        
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a financial categorization assistant. Respond only with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                response_format={"type": "json_object"}
+            )
+            
+            content = response.choices[0].message.content
+            if content:
+                result = json.loads(content)
+                categorizations = result.get("categorizations", [])
+                
+                if not isinstance(categorizations, list):
+                    st.error(f"Invalid response format from AI")
+                    return None, None
+                    
+                all_results.extend(categorizations)
+                
+                # Extract summary from last batch if present
+                if is_last_batch and "summary" in result:
+                    summary = result.get("summary")
+            
+        except Exception as e:
+            st.error(f"Error categorizing batch: {str(e)}")
+            return None, None
+    
+    # Map categories back to dataframe
+    category_map = {item.get('index'): item.get('category', 'Other') for item in all_results if isinstance(item, dict)}
+    df['category'] = df.index.map(lambda idx: category_map.get(idx, "Other"))
+    
+    # Fallback if summary wasn't generated
+    if not summary:
+        total_spent = df['amount'].sum()
+        if total_spent == 0:
+            summary = "No spending detected in the uploaded transactions."
+        else:
+            summary = "Summary generation failed. Please try again."
+    
+    return df, summary
+
 # Custom CSS for theming
 st.markdown("""
 <style>
@@ -115,9 +232,15 @@ else:
         st.info("🤖 Ready to categorize transactions with AI")
         
         if st.button("Categorize with AI", type="primary"):
-            with st.spinner("Analyzing transactions..."):
-                # OpenAI integration will go here
-                st.warning("OpenAI integration coming next!")
+            with st.spinner("Analyzing transactions with AI..."):
+                # Categorize transactions and generate summary
+                categorized_df, summary = categorize_transactions_with_summary(df.copy())
+                
+                if categorized_df is not None:
+                    st.session_state.transactions = categorized_df
+                    st.session_state.summary = summary
+                    st.session_state.categorized = True
+                    st.rerun()
                 
     else:
         # Display results
@@ -132,8 +255,23 @@ else:
         
         with col2:
             st.markdown("### 📈 Spending by Category")
-            # Pie chart will go here
-            st.info("Pie chart coming next")
+            
+            # Calculate spending by category
+            category_spending = df.groupby('category')['amount'].sum().reset_index()
+            category_spending = category_spending.sort_values('amount', ascending=False)
+            
+            # Create pie chart
+            fig = px.pie(
+                category_spending, 
+                values='amount', 
+                names='category',
+                title='',
+                color_discrete_sequence=px.colors.sequential.RdBu
+            )
+            fig.update_traces(textposition='inside', textinfo='percent+label')
+            fig.update_layout(showlegend=False, height=400)
+            
+            st.plotly_chart(fig, use_container_width=True)
         
         # Summary section
         st.markdown("### 📝 AI Summary")
