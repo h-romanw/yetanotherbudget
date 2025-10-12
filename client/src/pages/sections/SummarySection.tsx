@@ -100,21 +100,21 @@ export const SummarySection = (): JSX.Element => {
               </div>
             </header>
 
-            <div className="flex flex-col items-center justify-center gap-2.5 flex-1 w-full">
-              <div className="relative w-[344px] h-[344px] bg-[#f6f6f6]">
+            <div className="flex flex-col items-center justify-center gap-2 flex-1 w-full">
+              <div className="relative w-[480px] h-[480px] max-w-full bg-[#f6f6f6]">
                 <img
                   className="absolute w-[100.00%] h-[100.00%] top-[-17.44%] left-[-17.44%]"
                   alt="Vector"
                   src="/figmaAssets/vector.svg"
                 />
 
-                <div className="absolute w-[43.08%] h-[32.56%] top-[33.46%] left-[28.72%]">
-                  <div className="flex flex-col w-[100.00%] items-center gap-1 h-full">
-                    <span className="self-stretch mt-[-1.00px] font-heading-3 font-[number:var(--heading-3-font-weight)] text-[#5f6464] text-[length:var(--heading-3-font-size)] text-center tracking-[var(--heading-3-letter-spacing)] leading-[var(--heading-3-line-height)] [font-style:var(--heading-3-font-style)]">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="font-heading-3 font-[number:var(--heading-3-font-weight)] text-[#5f6464] text-[length:var(--heading-3-font-size)] text-center tracking-[var(--heading-3-letter-spacing)] leading-[var(--heading-3-line-height)] [font-style:var(--heading-3-font-style)]">
                       Spent
                     </span>
 
-                    <span className="self-stretch font-heading-2 font-[number:var(--heading-2-font-weight)] text-[#020202] text-[length:var(--heading-2-font-size)] text-center tracking-[var(--heading-2-letter-spacing)] leading-[var(--heading-2-line-height)] [font-style:var(--heading-2-font-style)]">
+                    <span className="font-heading-2 font-[number:var(--heading-2-font-weight)] text-[#020202] text-[length:var(--heading-2-font-size)] text-center tracking-[var(--heading-2-letter-spacing)] leading-[var(--heading-2-line-height)] [font-style:var(--heading-2-font-style)]">
                       £2,750
                     </span>
                   </div>
@@ -200,7 +200,7 @@ export const SummarySection = (): JSX.Element => {
                 key={`transaction-${index}`}
                 className="flex flex-col items-start justify-center gap-2 px-4 py-0 w-full"
               >
-                <div className="inline-flex h-6 items-center gap-2.5">
+                <div className="inline-flex h-6 items-center gap-2">
                   <Checkbox className="w-4 h-4 bg-white rounded border border-solid border-[#757575]" />
 
                   <div className="flex w-[109px] items-center px-2 py-0 self-stretch">
@@ -223,7 +223,7 @@ export const SummarySection = (): JSX.Element => {
 
                   <div className="flex w-[196px] items-center px-2 py-0 self-stretch">
                     <Badge
-                      className={`flex w-[188px] items-center justify-center gap-2.5 self-stretch mr-[-8.00px] ${transaction.categoryColor} rounded-full border-0 h-auto`}
+                      className={`flex w-[188px] items-center justify-center gap-2 self-stretch mr-[-8.00px] ${transaction.categoryColor} rounded-full border-0 h-auto`}
                     >
                       <span className="mt-[-1.00px] font-small font-[number:var(--small-font-weight)] text-[#020202] text-[length:var(--small-font-size)] tracking-[var(--small-letter-spacing)] leading-[var(--small-line-height)] whitespace-nowrap [font-style:var(--small-font-style)]">
                         {transaction.category}
