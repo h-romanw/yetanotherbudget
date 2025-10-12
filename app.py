@@ -219,7 +219,7 @@ if st.session_state.transactions is None:
                 'payee': ['TESCO STORES', 'RENT PAYMENT'],
                 'amount': [35.64, 1776.50]
             })
-            st.dataframe(sample_df, use_container_width=True)
+            st.dataframe(sample_df, width='stretch')
 
 else:
     # Display loaded data
@@ -251,7 +251,7 @@ else:
         
         with col1:
             st.markdown("### 💳 Categorized Transactions")
-            st.dataframe(df, use_container_width=True, height=400)
+            st.dataframe(df, width='stretch', height=400)
         
         with col2:
             st.markdown("### 📈 Spending by Category")
@@ -282,4 +282,4 @@ else:
     
     # Raw data expander
     with st.expander("📋 View Raw Data"):
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
