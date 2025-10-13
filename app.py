@@ -37,6 +37,10 @@ CATEGORIES = [
     "Shopping", "Entertainment", "Health & Fitness", "Travel", "Other"
 ]
 
+def get_all_categories():
+    """Get combined list of default + custom categories"""
+    return CATEGORIES + st.session_state.get('custom_categories', [])
+
 
 # AI categorization function with summary
 def categorize_transactions_with_summary(df):
@@ -45,7 +49,7 @@ def categorize_transactions_with_summary(df):
     if not client:
         return None, None
 
-    categories_list = CATEGORIES
+    categories_list = get_all_categories()
 
     # Prepare batch of transactions
     batch_size = 15
@@ -196,6 +200,8 @@ if 'categorized' not in st.session_state:
     st.session_state.categorized = False
 if 'summary' not in st.session_state:
     st.session_state.summary = None
+if 'custom_categories' not in st.session_state:
+    st.session_state.custom_categories = []
 
 # Sidebar
 with st.sidebar:
@@ -221,6 +227,38 @@ with st.sidebar:
         st.session_state.categorized = False
         st.session_state.summary = None
         st.rerun()
+    
+    st.divider()
+    
+    # Custom categories section
+    st.markdown("### 🏷️ Custom Categories")
+    
+    # Show existing custom categories
+    if st.session_state.custom_categories:
+        st.caption("Your custom categories:")
+        for cat in st.session_state.custom_categories:
+            st.markdown(f"• {cat}")
+    else:
+        st.caption("No custom categories yet")
+    
+    # Add new category
+    new_category = st.text_input("New category name", key="new_category_input", placeholder="e.g., Pet Care")
+    
+    if st.button("➕ Add Category", use_container_width=True):
+        if new_category and new_category.strip():
+            # Clean the category name
+            clean_name = new_category.strip().title()
+            
+            # Check if it already exists (case-insensitive)
+            all_cats = get_all_categories()
+            if clean_name.lower() not in [c.lower() for c in all_cats]:
+                st.session_state.custom_categories.append(clean_name)
+                st.success(f"✅ Added '{clean_name}'")
+                st.rerun()
+            else:
+                st.error(f"❌ Category '{clean_name}' already exists")
+        else:
+            st.error("❌ Please enter a category name")
 
 # Main content
 st.title("AI Spending Analyzer")
@@ -301,7 +339,7 @@ else:
                         "Category",
                         help="Select category for this transaction",
                         width="medium",
-                        options=CATEGORIES,
+                        options=get_all_categories(),
                         required=True,
                     )
                 },
