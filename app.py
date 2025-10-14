@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Yet Another Budget",
     page_icon="💰",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items=None,
     # theme paramater doesn't work in Replit. See .streamlit/config.toml for theme parameters.
     # theme={
@@ -186,12 +186,44 @@ Keep it conversational and supportive."""
         return None
 
 
-# Load external CSS
-def load_css():
-    with open("styles.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+# Custom CSS for theming
+st.markdown("""
+<style>
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #e2999b;
+        color: #000000;
+    }
+    
+    /* Main content */
+    .main {
+        background-color: #f5f5f5;
+    }
 
-load_css()
+    /* Sidebar styling 
+    [data-testid="stSidebar"] {
+        background-color: #e2999b;
+        color: #000000;
+    } */
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #000000 !important;
+    }
+    /* Inactive button */
+    .stButton>button[disabled] {
+        color: #000000 !important;
+    }
+    
+    /* Primary button */
+    .stButton>button[kind="primary"] {
+        background-color: #832632;
+        color: white;
+
+
+</style>
+""",
+            unsafe_allow_html=True)
 
 # Initialize session state
 if 'transactions' not in st.session_state:
@@ -529,20 +561,12 @@ elif st.session_state.current_page == "analyze":
             )
             
             # Update traces to add gradient-like fills
-            for i, trace in enumerate(fig_line.data):
-                # Get the color for this trace
-                trace_color = trace.line.color if hasattr(trace, 'line') and hasattr(trace.line, 'color') else '#832632'
-                # Make it semi-transparent for fill
-                if 'rgb' in str(trace_color):
-                    fill_color = str(trace_color).replace('rgb', 'rgba').replace(')', ', 0.2)')
-                else:
-                    fill_color = trace_color + '33'  # Add transparency
-                
+            for trace in fig_line.data:
                 trace.update(
                     mode='lines',
                     line=dict(width=3),
-                    fill='tonexty' if i > 0 else None,
-                    fillcolor=fill_color
+                    fill='tonexty',
+                    fillcolor=trace.line.color.replace('rgb', 'rgba').replace(')', ', 0.2)')
                 )
             
             fig_line.update_layout(
