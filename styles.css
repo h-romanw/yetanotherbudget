@@ -352,7 +352,6 @@ section[data-testid="stSidebar"] > div {
 /* Hide Streamlit branding */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;}
 
 /* Adjust spacing */
 .block-container {

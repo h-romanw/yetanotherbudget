@@ -25,16 +25,29 @@ Preferred communication style: Simple, everyday language.
 - Rationale: Streamlit enables rapid development of data-focused applications without frontend framework complexity
 
 **Design System**
-- Custom color scheme: Primary (#832632), Background (#f5f5f5), Secondary (#e2999b), Text (#52181e)
-- Wide layout configuration for better data table viewing
-- Collapsed sidebar by default to maximize content area
+- Based on Figma design specifications with Manrope font family
+- Custom color scheme: Primary burgundy (#832632), Dark burgundy (#52181E), Light pink (#E2999B)
+- Category-specific colors: Groceries (green), Bills (purple), Transport (blue), etc.
+- External CSS file (styles.css) for reusable styling across future React migration
+- Wide layout configuration for better data visualization
+- Expanded sidebar with navigation between pages
+- Pill-shaped buttons with shadows and hover effects
 - Custom branding through page configuration (icon, title)
 
 **State Management Approach**
 - Streamlit's session_state for persistent user data across reruns
 - Custom categories stored in session state (`custom_categories`)
+- Page navigation managed via `current_page` session state
+- Chat messages persisted in `chat_messages` session state
 - Automatic re-execution model handles UI updates reactively
 - No explicit client-side state management required
+
+**Multi-Page Architecture**
+- Page 1: "Summarize" - Import CSV, categorize transactions, view analysis
+- Page 2: "Analyze & Understand" - Interactive charts, AI chat coaching, spending insights
+- Sidebar navigation with active page highlighting
+- Conditional rendering based on `current_page` session state
+- Disabled navigation to "Analyze" page until transactions are categorized
 
 ### Backend Architecture
 
