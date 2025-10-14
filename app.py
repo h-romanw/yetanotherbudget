@@ -37,9 +37,26 @@ CATEGORIES = [
     "Shopping", "Entertainment", "Health & Fitness", "Travel", "Other"
 ]
 
+# Category color mapping (consistent across all visualizations)
+CATEGORY_COLORS = {
+    "Groceries": "#00D084",  # Green
+    "Dining & Takeout": "#FF9500",  # Orange
+    "Bills & Utilities": "#B040D0",  # Purple
+    "Transport": "#007AFF",  # Blue
+    "Shopping": "#FF2D55",  # Pink/Red
+    "Entertainment": "#FF3B30",  # Red
+    "Health & Fitness": "#34C759",  # Light Green
+    "Travel": "#5856D6",  # Indigo
+    "Other": "#8E8E93"  # Gray
+}
+
 def get_all_categories():
     """Get combined list of default + custom categories"""
     return CATEGORIES + st.session_state.get('custom_categories', [])
+
+def get_category_color(category):
+    """Get color for a category (with fallback for custom categories)"""
+    return CATEGORY_COLORS.get(category, "#832632")  # Fallback to burgundy for custom
 
 
 # AI categorization function (categorization only - no summary)
@@ -219,6 +236,10 @@ if 'summary' not in st.session_state:
     st.session_state.summary = None
 if 'custom_categories' not in st.session_state:
     st.session_state.custom_categories = []
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "summarize"
+if 'chat_messages' not in st.session_state:
+    st.session_state.chat_messages = []
 
 # Sidebar
 with st.sidebar:
@@ -228,10 +249,19 @@ with st.sidebar:
     st.divider()
 
     # Navigation
-    st.button("📊 Import & View", type="primary", use_container_width=True)
-    st.button("📈 Analyze & Understand",
-              disabled=True,
-              use_container_width=True)
+    if st.button("📊 Summarize", 
+                 type="primary" if st.session_state.current_page == "summarize" else "secondary",
+                 use_container_width=True):
+        st.session_state.current_page = "summarize"
+        st.rerun()
+    
+    if st.button("📈 Analyze",
+                 type="primary" if st.session_state.current_page == "analyze" else "secondary",
+                 use_container_width=True,
+                 disabled=not st.session_state.categorized):
+        st.session_state.current_page = "analyze"
+        st.rerun()
+    
     st.button("🎯 Set Targets (WIP)", disabled=True, use_container_width=True)
 
     st.divider()
@@ -278,162 +308,390 @@ with st.sidebar:
         else:
             st.error("❌ Please enter a category name")
 
-# Main content
-st.title("AI Spending Analyzer")
+# ============================================
+# PAGE ROUTING
+# ============================================
 
-# File uploader
-if st.session_state.transactions is None:
-    uploaded_file = st.file_uploader(
-        "Upload your bank statement CSV",
-        type=['csv'],
-        help="CSV should contain columns: date, payee, amount")
+# PAGE 1: SUMMARIZE (Import & View)
+if st.session_state.current_page == "summarize":
+    st.title("AI Spending Analyzer")
 
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
+    # File uploader
+    if st.session_state.transactions is None:
+        uploaded_file = st.file_uploader(
+            "Upload your bank statement CSV",
+            type=['csv'],
+            help="CSV should contain columns: date, payee, amount")
 
-            # Validate columns
-            required_cols = ['date', 'payee', 'amount']
-            if not all(col in df.columns for col in required_cols):
-                st.error(
-                    f"❌ CSV must contain columns: {', '.join(required_cols)}")
-            else:
-                st.session_state.transactions = df
-                st.rerun()
+        if uploaded_file is not None:
+            try:
+                df = pd.read_csv(uploaded_file)
 
-        except Exception as e:
-            st.error(f"❌ Error reading CSV: {str(e)}")
-    else:
-        # Empty state
-        st.info("👆 Upload a CSV file to get started")
-
-        # Sample data format
-        with st.expander("💡 Expected CSV Format"):
-            sample_df = pd.DataFrame({
-                'date': ['12/10/2025', '11/10/2025'],
-                'payee': ['TESCO STORES', 'RENT PAYMENT'],
-                'amount': [35.64, 1776.50]
-            })
-            st.dataframe(sample_df, width='stretch')
-
-else:
-    # Display loaded data
-    df = st.session_state.transactions
-
-    st.success(f"✅ Loaded {len(df)} transactions")
-
-    # Step 1: Categorization
-    if not st.session_state.categorized:
-        st.info("🤖 Ready to categorize transactions with AI")
-
-        if st.button("Categorize with AI", type="primary"):
-            with st.spinner("Categorizing transactions..."):
-                # Only categorize (no summary yet)
-                categorized_df = categorize_transactions(df.copy())
-
-                if categorized_df is not None:
-                    st.session_state.transactions = categorized_df
-                    st.session_state.categorized = True
+                # Validate columns
+                required_cols = ['date', 'payee', 'amount']
+                if not all(col in df.columns for col in required_cols):
+                    st.error(
+                        f"❌ CSV must contain columns: {', '.join(required_cols)}")
+                else:
+                    st.session_state.transactions = df
                     st.rerun()
 
-    else:
-        # Step 2: Review and edit categories
-        st.subheader("📊 Categorized Transactions")
-        st.caption("Review the AI categorization. You can edit categories or add custom ones in the sidebar.")
-        
-        # Use data_editor to allow manual category changes
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "category":
-                st.column_config.SelectboxColumn(
-                    "Category",
-                    help="Select category for this transaction",
-                    width="medium",
-                    options=get_all_categories(),
-                    required=True,
-                )
-            },
-            width='stretch',
-            height=400,
-            hide_index=False,
-            key="transaction_editor")
-
-        # Update session state if data was edited
-        if not edited_df.equals(df):
-            st.session_state.transactions = edited_df
-            # Reset analysis if categories were changed
-            st.session_state.analyzed = False
-            st.session_state.summary = None
-
-        st.divider()
-
-        # Step 3: Generate analysis and insights
-        if not st.session_state.analyzed:
-            st.info("📈 Ready to analyze your spending patterns")
-            
-            if st.button("🔍 Analyze Now", type="primary"):
-                with st.spinner("Generating insights..."):
-                    # Generate summary from categorized data
-                    summary = generate_spending_summary(edited_df.copy())
-                    
-                    if summary:
-                        st.session_state.summary = summary
-                        st.session_state.analyzed = True
-                        st.rerun()
-        
+            except Exception as e:
+                st.error(f"❌ Error reading CSV: {str(e)}")
         else:
-            # Step 4: Display analysis results
-            st.subheader("📈 Spending Analysis")
+            # Empty state
+            st.info("👆 Upload a CSV file to get started")
+
+            # Sample data format
+            with st.expander("💡 Expected CSV Format"):
+                sample_df = pd.DataFrame({
+                    'date': ['12/10/2025', '11/10/2025'],
+                    'payee': ['TESCO STORES', 'RENT PAYMENT'],
+                    'amount': [35.64, 1776.50]
+                })
+                st.dataframe(sample_df, width='stretch')
+
+    else:
+        # Display loaded data
+        df = st.session_state.transactions
+
+        st.success(f"✅ Loaded {len(df)} transactions")
+
+        # Step 1: Categorization
+        if not st.session_state.categorized:
+            st.info("🤖 Ready to categorize transactions with AI")
+
+            if st.button("Categorize with AI", type="primary"):
+                with st.spinner("Categorizing transactions..."):
+                    # Only categorize (no summary yet)
+                    categorized_df = categorize_transactions(df.copy())
+
+                    if categorized_df is not None:
+                        st.session_state.transactions = categorized_df
+                        st.session_state.categorized = True
+                        st.rerun()
+
+        else:
+            # Step 2: Review and edit categories
+            st.subheader("📊 Categorized Transactions")
+            st.caption("Review the AI categorization. You can edit categories or add custom ones in the sidebar.")
             
-            # Create two columns for pie chart and summary
-            col1, col2 = st.columns([1, 1])
+            # Use data_editor to allow manual category changes
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "category":
+                    st.column_config.SelectboxColumn(
+                        "Category",
+                        help="Select category for this transaction",
+                        width="medium",
+                        options=get_all_categories(),
+                        required=True,
+                    )
+                },
+                width='stretch',
+                height=400,
+                hide_index=False,
+                key="transaction_editor")
 
-            with col1:
-                st.markdown("### 📊 Breakdown by Category")
+            # Update session state if data was edited
+            if not edited_df.equals(df):
+                st.session_state.transactions = edited_df
+                # Reset analysis if categories were changed
+                st.session_state.analyzed = False
+                st.session_state.summary = None
 
-                # Calculate spending by category
-                category_spending = edited_df.groupby(
-                    'category')['amount'].sum().reset_index()
-                category_spending = category_spending.sort_values('amount',
-                                                                  ascending=False)
+            st.divider()
 
-                # Pink/burgundy color palette matching the theme
-                colors = [
-                    '#832632', '#a13344', '#be4056', '#d94d68', '#e2999b',
-                    '#f0b8ba', '#f5d0d1', '#fae8e9', '#c96876'
-                ]
+            # Step 3: Generate analysis and insights
+            if not st.session_state.analyzed:
+                st.info("📈 Ready to analyze your spending patterns")
+                
+                if st.button("🔍 Analyze Now", type="primary"):
+                    with st.spinner("Generating insights..."):
+                        # Generate summary from categorized data
+                        summary = generate_spending_summary(edited_df.copy())
+                        
+                        if summary:
+                            st.session_state.summary = summary
+                            st.session_state.analyzed = True
+                            st.rerun()
+            
+            else:
+                # Step 4: Display analysis results
+                st.subheader("📈 Spending Analysis")
+                
+                # Create two columns for pie chart and summary
+                col1, col2 = st.columns([1, 1])
 
-                # Create pie chart
-                fig = px.pie(category_spending,
-                             values='amount',
-                             names='category',
-                             title='',
-                             color_discrete_sequence=colors)
-                fig.update_traces(textposition='auto',
-                                  textinfo='percent+label',
-                                  textfont_size=12,
-                                  marker=dict(line=dict(color='#FFFFFF', width=2)))
-                fig.update_layout(showlegend=True,
-                                  height=400,
-                                  legend=dict(orientation="v",
-                                              yanchor="middle",
-                                              y=0.5,
-                                              xanchor="left",
-                                              x=1.02),
-                                  font=dict(family="Arial, sans-serif",
-                                            size=12,
-                                            color="#52181e"))
+                with col1:
+                    st.markdown("### 📊 Breakdown by Category")
 
-                st.plotly_chart(fig, use_container_width=True)
+                    # Calculate spending by category
+                    category_spending = edited_df.groupby(
+                        'category')['amount'].sum().reset_index()
+                    category_spending = category_spending.sort_values('amount',
+                                                                      ascending=False)
 
-            with col2:
-                st.markdown("### 💡 AI Insights")
-                if st.session_state.summary:
-                    st.markdown(st.session_state.summary)
+                    # Pink/burgundy color palette matching the theme
+                    colors = [
+                        '#832632', '#a13344', '#be4056', '#d94d68', '#e2999b',
+                        '#f0b8ba', '#f5d0d1', '#fae8e9', '#c96876'
+                    ]
+
+                    # Create pie chart
+                    fig = px.pie(category_spending,
+                                 values='amount',
+                                 names='category',
+                                 title='',
+                                 color_discrete_sequence=colors)
+                    fig.update_traces(textposition='auto',
+                                      textinfo='percent+label',
+                                      textfont_size=12,
+                                      marker=dict(line=dict(color='#FFFFFF', width=2)))
+                    fig.update_layout(showlegend=True,
+                                      height=400,
+                                      legend=dict(orientation="v",
+                                                  yanchor="middle",
+                                                  y=0.5,
+                                                  xanchor="left",
+                                                  x=1.02),
+                                      font=dict(family="Arial, sans-serif",
+                                                size=12,
+                                                color="#52181e"))
+
+                    st.plotly_chart(fig, use_container_width=True)
+
+                with col2:
+                    st.markdown("### 💡 AI Insights")
+                    if st.session_state.summary:
+                        st.markdown(st.session_state.summary)
+                    else:
+                        st.info("Analysis insights will appear here")
+
+        # Raw data expander
+        with st.expander("📋 View Raw Data"):
+            st.dataframe(df, width='stretch')
+
+# PAGE 2: ANALYZE & UNDERSTAND
+elif st.session_state.current_page == "analyze":
+    st.title("Analyze & Understand")
+    
+    if st.session_state.transactions is None or not st.session_state.categorized:
+        st.warning("⚠️ Please upload and categorize transactions first on the Summarize page.")
+    else:
+        df = st.session_state.transactions
+        
+        # Calculate metrics
+        total_spent = df['amount'].sum()
+        
+        # Create three column layout: Balance + Chart | Chat
+        main_col, chat_col = st.columns([2, 1])
+        
+        with main_col:
+            # Balance card
+            st.markdown(f"""
+            <div style='background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;'>
+                <h3 style='color: #52181E; margin: 0 0 10px 0;'>BALANCE</h3>
+                <h2 style='color: #000; margin: 0;'>£{total_spent:,.2f}</h2>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Donut chart showing spending by category
+            category_spending = df.groupby('category')['amount'].sum().reset_index()
+            category_spending = category_spending.sort_values('amount', ascending=False)
+            
+            # Use category colors
+            colors = [get_category_color(cat) for cat in category_spending['category']]
+            
+            fig_donut = px.pie(
+                category_spending,
+                values='amount',
+                names='category',
+                hole=0.6,
+                color='category',
+                color_discrete_map={cat: get_category_color(cat) for cat in category_spending['category']}
+            )
+            
+            # Add "Spent" text in center
+            fig_donut.add_annotation(
+                text=f"Spent<br>£{total_spent:,.0f}",
+                x=0.5, y=0.5,
+                font_size=20,
+                showarrow=False
+            )
+            
+            fig_donut.update_traces(
+                textposition='outside',
+                textinfo='percent',
+                textfont_size=12,
+                marker=dict(line=dict(color='#FFFFFF', width=2))
+            )
+            
+            fig_donut.update_layout(
+                showlegend=True,
+                height=400,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.02
+                ),
+                font=dict(family="Manrope, Arial, sans-serif", size=12, color="#000000"),
+                margin=dict(t=0, b=0, l=0, r=0),
+                paper_bgcolor='white',
+                plot_bgcolor='white'
+            )
+            
+            st.plotly_chart(fig_donut, use_container_width=True)
+            
+            # Line chart showing spending over time
+            st.markdown("### Spending Over Time")
+            
+            # Parse dates and group by date and category
+            df_chart = df.copy()
+            df_chart['date'] = pd.to_datetime(df_chart['date'], format='%d/%m/%Y')
+            
+            # Group by date and category
+            timeline_data = df_chart.groupby(['date', 'category'])['amount'].sum().reset_index()
+            
+            # Create line chart with gradient fills
+            fig_line = px.line(
+                timeline_data,
+                x='date',
+                y='amount',
+                color='category',
+                color_discrete_map={cat: get_category_color(cat) for cat in timeline_data['category'].unique()}
+            )
+            
+            # Update traces to add gradient-like fills
+            for trace in fig_line.data:
+                trace.update(
+                    mode='lines',
+                    line=dict(width=3),
+                    fill='tonexty',
+                    fillcolor=trace.line.color.replace('rgb', 'rgba').replace(')', ', 0.2)')
+                )
+            
+            fig_line.update_layout(
+                height=300,
+                showlegend=False,
+                xaxis=dict(
+                    showgrid=True,
+                    gridcolor='#E0E0E0',
+                    zeroline=False
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='#E0E0E0',
+                    zeroline=False
+                ),
+                font=dict(family="Manrope, Arial, sans-serif", size=12, color="#000000"),
+                margin=dict(t=20, b=20, l=20, r=20),
+                paper_bgcolor='white',
+                plot_bgcolor='white'
+            )
+            
+            st.plotly_chart(fig_line, use_container_width=True)
+            
+            # Transaction table with color-coded categories
+            st.markdown("### Transactions")
+            
+            # Format the dataframe for display
+            display_df = df[['date', 'payee', 'amount', 'category']].copy()
+            display_df.columns = ['DATE', 'PAYEE', 'VALUE', 'CATEGORY']
+            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"£{x:.2f}")
+            
+            # Display with color-coded categories using column config
+            st.dataframe(
+                display_df,
+                column_config={
+                    "CATEGORY": st.column_config.TextColumn(
+                        "CATEGORY",
+                        help="Transaction category"
+                    )
+                },
+                use_container_width=True,
+                height=300,
+                hide_index=True
+            )
+        
+        with chat_col:
+            st.markdown("### CHAT")
+            
+            # Chat messages container
+            chat_container = st.container()
+            
+            with chat_container:
+                # Display chat messages
+                if st.session_state.chat_messages:
+                    for idx, msg in enumerate(st.session_state.chat_messages):
+                        if msg['role'] == 'user':
+                            st.markdown(f"""
+                            <div style='background: #52181E; color: white; padding: 10px; border-radius: 10px; margin: 10px 0;'>
+                                {msg['content']}
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            # AI message with collapsible content
+                            with st.expander("AI Response", expanded=idx == len(st.session_state.chat_messages) - 1):
+                                st.markdown(msg['content'])
                 else:
-                    st.info("Analysis insights will appear here")
+                    st.info("Ask me about your spending patterns!")
+            
+            # Chat input
+            user_question = st.text_input(
+                "Ask a question",
+                placeholder="Explore your spending...",
+                key="chat_input",
+                label_visibility="collapsed"
+            )
+            
+            if st.button("Send", type="primary", use_container_width=True):
+                if user_question and user_question.strip():
+                    # Add user message
+                    st.session_state.chat_messages.append({
+                        'role': 'user',
+                        'content': user_question
+                    })
+                    
+                    # Generate AI response
+                    with st.spinner("Thinking..."):
+                        # Prepare context about spending
+                        category_summary = df.groupby('category')['amount'].sum().to_dict()
+                        total = df['amount'].sum()
+                        
+                        context = f"""User's spending data:
+- Total spent: £{total:.2f}
+- Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
 
-    # Raw data expander
-    with st.expander("📋 View Raw Data"):
-        st.dataframe(df, width='stretch')
+User question: {user_question}
+
+Provide a helpful, concise response about their spending patterns."""
+                        
+                        if client:
+                            try:
+                                response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=[
+                                        {"role": "system", "content": "You are a helpful financial coaching assistant. Provide brief, actionable advice about spending."},
+                                        {"role": "user", "content": context}
+                                    ],
+                                    temperature=0.7,
+                                    max_tokens=200
+                                )
+                                
+                                ai_response = response.choices[0].message.content
+                                
+                                # Add AI message
+                                st.session_state.chat_messages.append({
+                                    'role': 'assistant',
+                                    'content': ai_response
+                                })
+                                
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error generating response: {str(e)}")
+                        else:
+                            st.error("OpenAI API key not configured")
