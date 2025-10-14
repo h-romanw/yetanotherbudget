@@ -376,10 +376,15 @@ if st.session_state.current_page == "summarize":
             st.subheader("📊 Categorized Transactions")
             st.caption("Review the AI categorization. You can edit categories or add custom ones in the sidebar.")
             
+            # Add color indicator column
+            df_with_color = df.copy()
+            df_with_color['color'] = df_with_color['category'].apply(lambda cat: get_category_color(cat))
+            
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
-                df,
+                df_with_color,
                 column_config={
+                    "color": st.column_config.Column("", width="small", disabled=True),
                     "category":
                     st.column_config.SelectboxColumn(
                         "Category",
@@ -392,11 +397,14 @@ if st.session_state.current_page == "summarize":
                 width='stretch',
                 height=400,
                 hide_index=False,
-                key="transaction_editor")
+                key="transaction_editor",
+                column_order=["date", "payee", "amount", "color", "category"])
 
             # Update session state if data was edited
-            if not edited_df.equals(df):
-                st.session_state.transactions = edited_df
+            if not edited_df.equals(df_with_color):
+                # Remove color column before saving (it's computed dynamically)
+                edited_df_clean = edited_df.drop(columns=['color'])
+                st.session_state.transactions = edited_df_clean
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
                 st.session_state.summary = None
@@ -600,6 +608,9 @@ elif st.session_state.current_page == "analyze":
                 # Display transactions with styled dataframe
                 display_df = df.head(10).copy()
                 
+                # Add color indicator column with colored dots
+                display_df['color'] = display_df['category'].apply(lambda cat: get_category_color(cat))
+                
                 # Custom CSS for styled table
                 st.markdown("""
                 <style>
@@ -611,27 +622,17 @@ elif st.session_state.current_page == "analyze":
                 
                 # Display with column configuration for better styling
                 st.dataframe(
-                    display_df[['date', 'payee', 'amount', 'category']],
+                    display_df[['date', 'payee', 'amount', 'color', 'category']],
                     column_config={
                         "date": st.column_config.TextColumn("DATE", width="small"),
                         "payee": st.column_config.TextColumn("PAYEE", width="medium"),
                         "amount": st.column_config.NumberColumn("VALUE", format="£%.2f", width="small"),
+                        "color": st.column_config.Column("", width="small"),
                         "category": st.column_config.TextColumn("CATEGORY", width="medium"),
                     },
                     use_container_width=True,
                     hide_index=True
                 )
-                
-                # Show category legend with colors
-                st.markdown("**Category Colors:**")
-                cols = st.columns(min(5, len(df['category'].unique())))
-                for idx, category in enumerate(df['category'].unique()[:5]):
-                    with cols[idx]:
-                        color = get_category_color(category)
-                        st.markdown(
-                            f'<div style="background: {color}; color: white; padding: 5px 10px; border-radius: 15px; text-align: center; font-size: 12px;">{category}</div>',
-                            unsafe_allow_html=True
-                        )
         
         with chat_col:
             st.markdown("### CHAT")
