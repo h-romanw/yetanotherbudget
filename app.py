@@ -376,15 +376,15 @@ if st.session_state.current_page == "summarize":
             st.subheader("📊 Categorized Transactions")
             st.caption("Review the AI categorization. You can edit categories or add custom ones in the sidebar.")
             
-            # Add color indicator column
-            df_with_color = df.copy()
-            df_with_color['color'] = df_with_color['category'].apply(lambda cat: get_category_color(cat))
+            # Add color indicator column with dot
+            df_with_indicator = df.copy()
+            df_with_indicator['●'] = df_with_indicator['category'].apply(lambda cat: '●')
             
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
-                df_with_color,
+                df_with_indicator,
                 column_config={
-                    "color": st.column_config.Column("", width="small", disabled=True),
+                    "●": st.column_config.TextColumn("", width="small", disabled=True),
                     "category":
                     st.column_config.SelectboxColumn(
                         "Category",
@@ -398,12 +398,24 @@ if st.session_state.current_page == "summarize":
                 height=400,
                 hide_index=False,
                 key="transaction_editor",
-                column_order=["date", "payee", "amount", "color", "category"])
+                column_order=["date", "payee", "amount", "●", "category"])
+
+            # Show category legend with colored badges
+            st.caption("**Category Colors:**")
+            if 'category' in edited_df.columns:
+                legend_cols = st.columns(min(len(edited_df['category'].unique()), 5))
+                for idx, category in enumerate(list(edited_df['category'].unique())[:5]):
+                    with legend_cols[idx]:
+                        color = get_category_color(category)
+                        st.markdown(
+                            f'<div style="background: {color}; color: white; padding: 5px 10px; border-radius: 15px; text-align: center; font-size: 12px; margin: 2px;">{category}</div>',
+                            unsafe_allow_html=True
+                        )
 
             # Update session state if data was edited
-            if not edited_df.equals(df_with_color):
-                # Remove color column before saving (it's computed dynamically)
-                edited_df_clean = edited_df.drop(columns=['color'])
+            if not edited_df.equals(df_with_indicator):
+                # Remove indicator column before saving (it's computed dynamically)
+                edited_df_clean = edited_df.drop(columns=['●'])
                 st.session_state.transactions = edited_df_clean
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
@@ -608,8 +620,8 @@ elif st.session_state.current_page == "analyze":
                 # Display transactions with styled dataframe
                 display_df = df.head(10).copy()
                 
-                # Add color indicator column with colored dots
-                display_df['color'] = display_df['category'].apply(lambda cat: get_category_color(cat))
+                # Add color indicator column with colored circle emoji
+                display_df['●'] = display_df['category'].apply(lambda cat: '●')
                 
                 # Custom CSS for styled table
                 st.markdown("""
@@ -620,19 +632,30 @@ elif st.session_state.current_page == "analyze":
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Display with column configuration for better styling
+                # Display with column configuration for better styling  
                 st.dataframe(
-                    display_df[['date', 'payee', 'amount', 'color', 'category']],
+                    display_df[['date', 'payee', 'amount', '●', 'category']],
                     column_config={
                         "date": st.column_config.TextColumn("DATE", width="small"),
                         "payee": st.column_config.TextColumn("PAYEE", width="medium"),
                         "amount": st.column_config.NumberColumn("VALUE", format="£%.2f", width="small"),
-                        "color": st.column_config.Column("", width="small"),
+                        "●": st.column_config.TextColumn("", width="small"),
                         "category": st.column_config.TextColumn("CATEGORY", width="medium"),
                     },
                     use_container_width=True,
                     hide_index=True
                 )
+                
+                # Show category legend with colored badges
+                st.caption("**Categories:**")
+                legend_cols = st.columns(len(df['category'].unique()))
+                for idx, category in enumerate(df['category'].unique()):
+                    with legend_cols[idx]:
+                        color = get_category_color(category)
+                        st.markdown(
+                            f'<div style="background: {color}; color: white; padding: 3px 8px; border-radius: 12px; text-align: center; font-size: 11px; margin: 2px;">{category}</div>',
+                            unsafe_allow_html=True
+                        )
         
         with chat_col:
             st.markdown("### CHAT")
