@@ -9,7 +9,7 @@ st.set_page_config(
     page_title="Yet Another Budget",
     page_icon="💰",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
     menu_items=None,
     # theme paramater doesn't work in Replit. See .streamlit/config.toml for theme parameters.
     # theme={
@@ -529,12 +529,20 @@ elif st.session_state.current_page == "analyze":
             )
             
             # Update traces to add gradient-like fills
-            for trace in fig_line.data:
+            for i, trace in enumerate(fig_line.data):
+                # Get the color for this trace
+                trace_color = trace.line.color if hasattr(trace, 'line') and hasattr(trace.line, 'color') else '#832632'
+                # Make it semi-transparent for fill
+                if 'rgb' in str(trace_color):
+                    fill_color = str(trace_color).replace('rgb', 'rgba').replace(')', ', 0.2)')
+                else:
+                    fill_color = trace_color + '33'  # Add transparency
+                
                 trace.update(
                     mode='lines',
                     line=dict(width=3),
-                    fill='tonexty',
-                    fillcolor=trace.line.color.replace('rgb', 'rgba').replace(')', ', 0.2)')
+                    fill='tonexty' if i > 0 else None,
+                    fillcolor=fill_color
                 )
             
             fig_line.update_layout(
