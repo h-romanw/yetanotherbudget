@@ -698,28 +698,48 @@ elif st.session_state.current_page == "analyze":
                     
                     # Generate AI response
                     with st.spinner("Thinking..."):
-                        # Prepare context about spending
+                        # Prepare detailed context about spending
                         category_summary = df.groupby('category')['amount'].sum().to_dict()
                         total = df['amount'].sum()
                         
+                        # Add daily spending summary
+                        df_with_dates = df.copy()
+                        df_with_dates['date'] = pd.to_datetime(df_with_dates['date'], format='%d/%m/%Y')
+                        daily_spending = df_with_dates.groupby('date')['amount'].sum().sort_values(ascending=False)
+                        
+                        # Create transaction list for AI
+                        transactions_list = []
+                        for _, row in df.iterrows():
+                            transactions_list.append(f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})")
+                        
                         context = f"""User's spending data:
+
+SUMMARY:
 - Total spent: £{total:.2f}
+- Number of transactions: {len(df)}
 - Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
+
+DAILY SPENDING (top 5 days):
+{chr(10).join([f'- {date.strftime("%d/%m/%Y")}: £{amount:.2f}' for date, amount in daily_spending.head(5).items()])}
+
+ALL TRANSACTIONS:
+{chr(10).join(transactions_list[:20])}
+{"..." if len(transactions_list) > 20 else ""}
 
 User question: {user_question}
 
-Provide a helpful, concise response about their spending patterns."""
+Provide a helpful, specific response using the transaction data above. You can analyze dates, identify patterns, compare days/categories, etc."""
                         
                         if client:
                             try:
                                 response = client.chat.completions.create(
                                     model="gpt-4o-mini",
                                     messages=[
-                                        {"role": "system", "content": "You are a helpful financial coaching assistant. Provide brief, actionable advice about spending."},
+                                        {"role": "system", "content": "You are a helpful financial coaching assistant. Analyze the transaction data carefully and provide specific, data-driven insights."},
                                         {"role": "user", "content": context}
                                     ],
                                     temperature=0.7,
-                                    max_tokens=200
+                                    max_tokens=300
                                 )
                                 
                                 ai_response = response.choices[0].message.content
