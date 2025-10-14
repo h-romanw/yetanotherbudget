@@ -593,66 +593,73 @@ elif st.session_state.current_page == "analyze":
             # Transaction table with color-coded categories
             st.markdown("### Transactions")
             
-            # Create HTML table with styled category badges
-            table_html = """
-            <style>
-                .transaction-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin-top: 10px;
-                }
-                .transaction-table th {
-                    background: #F5F5F5;
-                    padding: 12px;
-                    text-align: left;
-                    font-weight: 600;
-                    font-size: 12px;
-                    color: #666;
-                    border-bottom: 2px solid #E0E0E0;
-                }
-                .transaction-table td {
-                    padding: 12px;
-                    border-bottom: 1px solid #F0F0F0;
-                }
-                .category-badge {
-                    display: inline-block;
-                    padding: 4px 12px;
-                    border-radius: 20px;
-                    font-weight: 500;
-                    font-size: 12px;
-                    color: white;
-                }
-            </style>
-            <table class="transaction-table">
-                <thead>
-                    <tr>
-                        <th>DATE</th>
-                        <th>PAYEE</th>
-                        <th>VALUE</th>
-                        <th>CATEGORY</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-            
-            # Add rows with color-coded badges
-            for _, row in df.head(10).iterrows():  # Show first 10 transactions
-                category_color = get_category_color(row['category'])
-                table_html += f"""
-                    <tr>
-                        <td>{row['date']}</td>
-                        <td>{row['payee']}</td>
-                        <td>£{row['amount']:.2f}</td>
-                        <td><span class="category-badge" style="background-color: {category_color};">{row['category']}</span></td>
-                    </tr>
+            # Check if category column exists
+            if 'category' not in df.columns:
+                st.error("❌ Transactions need to be categorized first. Go to the Summarize page.")
+            else:
+                # Create HTML table with styled category badges
+                table_html = """
+                <style>
+                    .transaction-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }
+                    .transaction-table th {
+                        background: #F5F5F5;
+                        padding: 12px;
+                        text-align: left;
+                        font-weight: 600;
+                        font-size: 12px;
+                        color: #666;
+                        border-bottom: 2px solid #E0E0E0;
+                    }
+                    .transaction-table td {
+                        padding: 12px;
+                        border-bottom: 1px solid #F0F0F0;
+                    }
+                    .category-badge {
+                        display: inline-block;
+                        padding: 4px 12px;
+                        border-radius: 20px;
+                        font-weight: 500;
+                        font-size: 12px;
+                        color: white;
+                    }
+                </style>
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>DATE</th>
+                            <th>PAYEE</th>
+                            <th>VALUE</th>
+                            <th>CATEGORY</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                 """
-            
-            table_html += """
-                </tbody>
-            </table>
-            """
-            
-            st.markdown(table_html, unsafe_allow_html=True)
+                
+                # Add rows with color-coded badges
+                try:
+                    for _, row in df.head(10).iterrows():  # Show first 10 transactions
+                        category_color = get_category_color(row['category'])
+                        table_html += f"""
+                            <tr>
+                                <td>{row['date']}</td>
+                                <td>{row['payee']}</td>
+                                <td>£{row['amount']:.2f}</td>
+                                <td><span class="category-badge" style="background-color: {category_color};">{row['category']}</span></td>
+                            </tr>
+                        """
+                except Exception as e:
+                    st.error(f"Error displaying transactions: {str(e)}")
+                
+                table_html += """
+                    </tbody>
+                </table>
+                """
+                
+                st.markdown(table_html, unsafe_allow_html=True)
         
         with chat_col:
             st.markdown("### CHAT")
