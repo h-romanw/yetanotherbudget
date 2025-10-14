@@ -1,0 +1,367 @@
+/* ============================================
+   YET ANOTHER BUDGET - DESIGN SYSTEM
+   Based on Figma design specifications
+   ============================================ */
+
+/* ============================================
+   TYPOGRAPHY
+   ============================================ */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
+
+* {
+    font-family: 'Manrope', Arial, sans-serif !important;
+}
+
+/* Heading 4 */
+h1, .heading-4 {
+    font-weight: 620;
+    font-size: 24px;
+    line-height: 150%;
+    letter-spacing: 0.05em;
+    color: #000000;
+}
+
+/* Heading 5 */
+h2, h3, .heading-5 {
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 150%;
+    letter-spacing: 0.05em;
+}
+
+/* Body text */
+body, p, .body-text {
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 22px;
+    letter-spacing: 0.05em;
+    color: #000000;
+}
+
+/* ============================================
+   COLOR PALETTE
+   ============================================ */
+:root {
+    /* Brand colors */
+    --primary-burgundy: #832632;
+    --dark-burgundy: #52181E;
+    --darker-burgundy: #260A0C;
+    --light-pink: #E2999B;
+    --very-light-pink: #F0B8BA;
+    
+    /* Neutral colors */
+    --background-gray: #D7D7D7;
+    --white: #FFFFFF;
+    --black: #000000;
+    --text-black: #050101;
+    --text-white: #F8F8F8;
+    
+    /* Category colors */
+    --groceries: #00D084;
+    --dining: #FF9500;
+    --bills: #B040D0;
+    --transport: #007AFF;
+    --shopping: #FF2D55;
+    --entertainment: #FF3B30;
+    --health: #34C759;
+    --travel: #5856D6;
+    --other: #8E8E93;
+}
+
+/* ============================================
+   LAYOUT & STRUCTURE
+   ============================================ */
+
+/* Main container background */
+.main {
+    background-color: var(--background-gray) !important;
+}
+
+/* Sidebar styling */
+section[data-testid="stSidebar"] {
+    background-color: var(--light-pink) !important;
+}
+
+section[data-testid="stSidebar"] > div {
+    background-color: var(--light-pink) !important;
+    padding: 16px !important;
+}
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
+
+/* Nav item container */
+.stButton > button {
+    border-radius: 10px !important;
+    padding: 8px !important;
+    font-weight: 500 !important;
+    font-size: 20px !important;
+    letter-spacing: 0.05em !important;
+    transition: all 0.2s ease !important;
+    border: none !important;
+    width: 100% !important;
+}
+
+/* Inactive nav items */
+.stButton > button[kind="secondary"] {
+    background-color: transparent !important;
+    color: var(--text-black) !important;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    background-color: rgba(82, 24, 30, 0.1) !important;
+}
+
+/* Active nav item */
+.stButton > button[kind="primary"] {
+    background-color: var(--dark-burgundy) !important;
+    color: var(--text-white) !important;
+}
+
+/* Disabled buttons */
+.stButton > button:disabled {
+    background-color: #C8C8C8 !important;
+    color: #888888 !important;
+    opacity: 0.6 !important;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+/* Primary action buttons */
+.stButton > button[kind="primary"]:not([data-testid*="baseButton"]) {
+    background: var(--primary-burgundy) !important;
+    color: white !important;
+    border-radius: 20px !important;
+    padding: 18px 24px !important;
+    font-weight: 500 !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s ease !important;
+}
+
+.stButton > button[kind="primary"]:hover {
+    background: var(--dark-burgundy) !important;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Import button (large bottom button) */
+.import-button {
+    background: var(--darker-burgundy) !important;
+    border-radius: 20px !important;
+    padding: 3px !important;
+}
+
+.import-button-inner {
+    background: var(--primary-burgundy) !important;
+    border-radius: 20px !important;
+    padding: 18px !important;
+    color: white !important;
+}
+
+/* ============================================
+   CARDS & CONTAINERS
+   ============================================ */
+
+/* Balance card */
+.balance-card {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.balance-card h3 {
+    color: var(--dark-burgundy);
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+}
+
+.balance-card h2 {
+    color: var(--black);
+    margin: 0;
+    font-size: 32px;
+    font-weight: 600;
+}
+
+/* ============================================
+   CHARTS
+   ============================================ */
+
+/* Chart containers */
+.chart-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 20px;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+/* Transaction table */
+.transaction-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.transaction-table th {
+    background: #F5F5F5;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: #666;
+    letter-spacing: 0.1em;
+    border-bottom: 2px solid #E0E0E0;
+    text-transform: uppercase;
+}
+
+.transaction-table td {
+    padding: 12px;
+    border-bottom: 1px solid #F0F0F0;
+    font-size: 14px;
+}
+
+.transaction-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Category badges */
+.category-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 12px;
+    color: white;
+    letter-spacing: 0.03em;
+}
+
+/* ============================================
+   CHAT INTERFACE
+   ============================================ */
+
+.chat-container {
+    background: white;
+    padding: 16px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.chat-message-user {
+    background: var(--dark-burgundy);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+.chat-message-ai {
+    background: #F5F5F5;
+    color: var(--black);
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+/* ============================================
+   FORM INPUTS
+   ============================================ */
+
+.stTextInput > div > div > input {
+    border-radius: 10px !important;
+    border: 1px solid #E0E0E0 !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+}
+
+.stTextInput > div > div > input:focus {
+    border-color: var(--primary-burgundy) !important;
+    box-shadow: 0 0 0 2px rgba(131, 38, 50, 0.1) !important;
+}
+
+/* ============================================
+   DATA EDITOR / TABLES
+   ============================================ */
+
+.stDataFrame {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+}
+
+/* ============================================
+   EXPANDERS
+   ============================================ */
+
+.streamlit-expanderHeader {
+    background-color: #F5F5F5 !important;
+    border-radius: 10px !important;
+    padding: 12px !important;
+    font-weight: 500 !important;
+}
+
+.streamlit-expanderHeader:hover {
+    background-color: #E8E8E8 !important;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.pill-button {
+    background: var(--primary-burgundy);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 20px;
+    border: none;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.pill-button:hover {
+    background: var(--dark-burgundy);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.pill-button:disabled {
+    background: #C8C8C8;
+    color: #888888;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ============================================
+   STREAMLIT SPECIFIC OVERRIDES
+   ============================================ */
+
+/* Hide Streamlit branding */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
+/* Adjust spacing */
+.block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
+
+/* Success/Info/Warning/Error messages */
+.stAlert {
+    border-radius: 10px !important;
+    padding: 12px 16px !important;
+}
