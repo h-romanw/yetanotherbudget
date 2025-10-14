@@ -433,18 +433,13 @@ if st.session_state.current_page == "summarize":
                     category_spending = category_spending.sort_values('amount',
                                                                       ascending=False)
 
-                    # Pink/burgundy color palette matching the theme
-                    colors = [
-                        '#832632', '#a13344', '#be4056', '#d94d68', '#e2999b',
-                        '#f0b8ba', '#f5d0d1', '#fae8e9', '#c96876'
-                    ]
-
-                    # Create pie chart
+                    # Create pie chart with consistent category colors
                     fig = px.pie(category_spending,
                                  values='amount',
                                  names='category',
                                  title='',
-                                 color_discrete_sequence=colors)
+                                 color='category',
+                                 color_discrete_map={cat: get_category_color(cat) for cat in category_spending['category']})
                     fig.update_traces(textposition='auto',
                                       textinfo='percent+label',
                                       textfont_size=12,
@@ -598,24 +593,66 @@ elif st.session_state.current_page == "analyze":
             # Transaction table with color-coded categories
             st.markdown("### Transactions")
             
-            # Format the dataframe for display
-            display_df = df[['date', 'payee', 'amount', 'category']].copy()
-            display_df.columns = ['DATE', 'PAYEE', 'VALUE', 'CATEGORY']
-            display_df['VALUE'] = display_df['VALUE'].apply(lambda x: f"£{x:.2f}")
+            # Create HTML table with styled category badges
+            table_html = """
+            <style>
+                .transaction-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }
+                .transaction-table th {
+                    background: #F5F5F5;
+                    padding: 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    font-size: 12px;
+                    color: #666;
+                    border-bottom: 2px solid #E0E0E0;
+                }
+                .transaction-table td {
+                    padding: 12px;
+                    border-bottom: 1px solid #F0F0F0;
+                }
+                .category-badge {
+                    display: inline-block;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-weight: 500;
+                    font-size: 12px;
+                    color: white;
+                }
+            </style>
+            <table class="transaction-table">
+                <thead>
+                    <tr>
+                        <th>DATE</th>
+                        <th>PAYEE</th>
+                        <th>VALUE</th>
+                        <th>CATEGORY</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
             
-            # Display with color-coded categories using column config
-            st.dataframe(
-                display_df,
-                column_config={
-                    "CATEGORY": st.column_config.TextColumn(
-                        "CATEGORY",
-                        help="Transaction category"
-                    )
-                },
-                use_container_width=True,
-                height=300,
-                hide_index=True
-            )
+            # Add rows with color-coded badges
+            for _, row in df.head(10).iterrows():  # Show first 10 transactions
+                category_color = get_category_color(row['category'])
+                table_html += f"""
+                    <tr>
+                        <td>{row['date']}</td>
+                        <td>{row['payee']}</td>
+                        <td>£{row['amount']:.2f}</td>
+                        <td><span class="category-badge" style="background-color: {category_color};">{row['category']}</span></td>
+                    </tr>
+                """
+            
+            table_html += """
+                </tbody>
+            </table>
+            """
+            
+            st.markdown(table_html, unsafe_allow_html=True)
         
         with chat_col:
             st.markdown("### CHAT")
