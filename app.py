@@ -186,44 +186,12 @@ Keep it conversational and supportive."""
         return None
 
 
-# Custom CSS for theming
-st.markdown("""
-<style>
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background-color: #e2999b;
-        color: #000000;
-    }
-    
-    /* Main content */
-    .main {
-        background-color: #f5f5f5;
-    }
+# Load external CSS
+def load_css():
+    with open("styles.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-    /* Sidebar styling 
-    [data-testid="stSidebar"] {
-        background-color: #e2999b;
-        color: #000000;
-    } */
-    
-    /* Headers */
-    h1, h2, h3 {
-        color: #000000 !important;
-    }
-    /* Inactive button */
-    .stButton>button[disabled] {
-        color: #000000 !important;
-    }
-    
-    /* Primary button */
-    .stButton>button[kind="primary"] {
-        background-color: #832632;
-        color: white;
-
-
-</style>
-""",
-            unsafe_allow_html=True)
+load_css()
 
 # Initialize session state
 if 'transactions' not in st.session_state:
