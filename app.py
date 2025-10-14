@@ -597,69 +597,41 @@ elif st.session_state.current_page == "analyze":
             if 'category' not in df.columns:
                 st.error("❌ Transactions need to be categorized first. Go to the Summarize page.")
             else:
-                # Create HTML table with styled category badges
-                table_html = """
+                # Display transactions with styled dataframe
+                display_df = df.head(10).copy()
+                
+                # Custom CSS for styled table
+                st.markdown("""
                 <style>
-                    .transaction-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin-top: 10px;
-                    }
-                    .transaction-table th {
-                        background: #F5F5F5;
-                        padding: 12px;
-                        text-align: left;
-                        font-weight: 600;
-                        font-size: 12px;
-                        color: #666;
-                        border-bottom: 2px solid #E0E0E0;
-                    }
-                    .transaction-table td {
-                        padding: 12px;
-                        border-bottom: 1px solid #F0F0F0;
-                    }
-                    .category-badge {
-                        display: inline-block;
-                        padding: 4px 12px;
-                        border-radius: 20px;
-                        font-weight: 500;
-                        font-size: 12px;
-                        color: white;
+                    .stDataFrame {
+                        font-family: 'Manrope', Arial, sans-serif;
                     }
                 </style>
-                <table class="transaction-table">
-                    <thead>
-                        <tr>
-                            <th>DATE</th>
-                            <th>PAYEE</th>
-                            <th>VALUE</th>
-                            <th>CATEGORY</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
+                """, unsafe_allow_html=True)
                 
-                # Add rows with color-coded badges
-                try:
-                    for _, row in df.head(10).iterrows():  # Show first 10 transactions
-                        category_color = get_category_color(row['category'])
-                        table_html += f"""
-                            <tr>
-                                <td>{row['date']}</td>
-                                <td>{row['payee']}</td>
-                                <td>£{row['amount']:.2f}</td>
-                                <td><span class="category-badge" style="background-color: {category_color};">{row['category']}</span></td>
-                            </tr>
-                        """
-                except Exception as e:
-                    st.error(f"Error displaying transactions: {str(e)}")
+                # Display with column configuration for better styling
+                st.dataframe(
+                    display_df[['date', 'payee', 'amount', 'category']],
+                    column_config={
+                        "date": st.column_config.TextColumn("DATE", width="small"),
+                        "payee": st.column_config.TextColumn("PAYEE", width="medium"),
+                        "amount": st.column_config.NumberColumn("VALUE", format="£%.2f", width="small"),
+                        "category": st.column_config.TextColumn("CATEGORY", width="medium"),
+                    },
+                    use_container_width=True,
+                    hide_index=True
+                )
                 
-                table_html += """
-                    </tbody>
-                </table>
-                """
-                
-                st.markdown(table_html, unsafe_allow_html=True)
+                # Show category legend with colors
+                st.markdown("**Category Colors:**")
+                cols = st.columns(min(5, len(df['category'].unique())))
+                for idx, category in enumerate(df['category'].unique()[:5]):
+                    with cols[idx]:
+                        color = get_category_color(category)
+                        st.markdown(
+                            f'<div style="background: {color}; color: white; padding: 5px 10px; border-radius: 15px; text-align: center; font-size: 12px;">{category}</div>',
+                            unsafe_allow_html=True
+                        )
         
         with chat_col:
             st.markdown("### CHAT")
