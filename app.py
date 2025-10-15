@@ -626,6 +626,47 @@ with st.sidebar:
 # PAGE 1: SUMMARIZE (Import & View)
 if st.session_state.current_page == "summarize":
     st.title("AI Spending Analyzer")
+    
+    # Projects section - always visible
+    st.subheader("📁 Projects")
+    
+    # Refresh projects list
+    st.session_state.projects_list = list_projects()
+    existing_projects = [p['name'] for p in st.session_state.projects_list]
+    
+    if existing_projects:
+        col_proj1, col_proj2 = st.columns([3, 1])
+        with col_proj1:
+            selected_project = st.selectbox(
+                "Load existing project or start new",
+                ["-- Start New --"] + existing_projects,
+                index=0 if not st.session_state.current_project else (
+                    (["-- Start New --"] + existing_projects).index(st.session_state.current_project)
+                    if st.session_state.current_project in existing_projects else 0
+                ),
+                key="project_selector_main"
+            )
+        
+        with col_proj2:
+            if selected_project != "-- Start New --":
+                if st.button("📂 Load Project", type="primary", use_container_width=True):
+                    loaded_df, error = load_project(selected_project)
+                    if error:
+                        st.error(f"❌ {error}")
+                    else:
+                        st.session_state.transactions = loaded_df
+                        st.session_state.current_project = selected_project
+                        st.session_state.categorized = True
+                        st.session_state.analyzed = False
+                        st.success(f"✅ Loaded project '{selected_project}'")
+                        st.rerun()
+    else:
+        st.info("💡 No saved projects yet. Upload data below to create your first project.")
+    
+    if st.session_state.current_project:
+        st.success(f"📁 Current project: **{st.session_state.current_project}**")
+    
+    st.divider()
 
     # File uploader
     if st.session_state.transactions is None:
@@ -802,7 +843,7 @@ if st.session_state.current_page == "summarize":
             st.divider()
             
             # Save/Append Project Section
-            st.subheader("💾 Save Your Analysis")
+            st.subheader("💾 Projects")
             
             col_save1, col_save2 = st.columns([2, 1])
             
@@ -865,6 +906,15 @@ if st.session_state.current_page == "summarize":
 
 # PAGE 2: ANALYZE & UNDERSTAND
 elif st.session_state.current_page == "analyze":
+    # Reload current project data if one is selected (ensures appended transactions are shown)
+    if st.session_state.current_project and st.session_state.current_project != "Current Session":
+        loaded_df, error = load_project(st.session_state.current_project)
+        if not error and loaded_df is not None:
+            # Only update if data has changed (avoid unnecessary reruns)
+            if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
+                st.session_state.transactions = loaded_df
+                st.session_state.categorized = True
+    
     # Project selector at top
     col_title, col_project = st.columns([2, 1])
     
@@ -872,7 +922,8 @@ elif st.session_state.current_page == "analyze":
         st.title("Analyze & Understand")
     
     with col_project:
-        # Get list of saved projects
+        # Refresh projects list
+        st.session_state.projects_list = list_projects()
         saved_projects = [p['name'] for p in st.session_state.projects_list]
         
         if saved_projects:
