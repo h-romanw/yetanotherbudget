@@ -633,13 +633,13 @@ elif st.session_state.current_page == "analyze":
                     for cat in timeline_data['category'].unique()
                 })
 
-            # Update traces to add gradient-like fills
-            for trace in fig_line.data:
-                trace.update(mode='lines',
-                             line=dict(width=3),
-                             fill='tonexty',
-                             fillcolor=trace.line.color.replace(
-                                 'rgb', 'rgba').replace(')', ', 0.2)'))
+            # # Update traces to add gradient-like fills
+            # for trace in fig_line.data:
+            #     trace.update(mode='lines',
+            #                  line=dict(width=3),
+            #                  fill='tonexty',
+            #                  fillcolor=trace.line.color.replace(
+            #                      'rgb', 'rgba').replace(')', ', 0.2)'))
 
             fig_line.update_layout(height=300,
                                    showlegend=False,
@@ -746,7 +746,7 @@ elif st.session_state.current_page == "analyze":
                 
                 # Chat input at bottom with white background
                 st.markdown("""
-                <div style='background: white; padding: 0 20px 20px 20px; border-radius: 0 0 10px 10px;'>
+                <div style='background: white; padding: 0 16px 16px 16px; border-radius: 0 0 8px 8px;'>
                 </div>
                 """, unsafe_allow_html=True)
                 
