@@ -38,8 +38,8 @@ CATEGORIES = [
     "Shopping", "Entertainment", "Health & Fitness", "Travel", "Other"
 ]
 
-# Category color mapping (consistent across all visualizations)
-CATEGORY_COLORS = {
+# Default category color mapping
+DEFAULT_CATEGORY_COLORS = {
     "Groceries": "#00D084",  # Green
     "Dining & Takeout": "#FF9500",  # Orange
     "Bills & Utilities": "#B040D0",  # Purple
@@ -51,16 +51,53 @@ CATEGORY_COLORS = {
     "Other": "#8E8E93"  # Gray
 }
 
+# Color palette for auto-assigning to custom categories
+COLOR_PALETTE = [
+    "#00D084", "#FF9500", "#B040D0", "#007AFF", "#FF2D55",
+    "#FF3B30", "#34C759", "#5856D6", "#8E8E93", "#FF6B6B",
+    "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7B731",
+    "#5F27CD", "#00D2D3", "#FF9FF3", "#54A0FF", "#48DBFB"
+]
+
 
 def get_all_categories():
     """Get combined list of default + custom categories"""
     return CATEGORIES + st.session_state.get('custom_categories', [])
 
 
+def assign_color_to_category(category):
+    """Auto-assign a color to a new category"""
+    if 'category_colors' not in st.session_state:
+        st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+    
+    # If category already has a color, return it
+    if category in st.session_state.category_colors:
+        return st.session_state.category_colors[category]
+    
+    # Find used colors
+    used_colors = set(st.session_state.category_colors.values())
+    
+    # Find first unused color from palette
+    for color in COLOR_PALETTE:
+        if color not in used_colors:
+            st.session_state.category_colors[category] = color
+            return color
+    
+    # If all colors used, cycle back to start
+    st.session_state.category_colors[category] = COLOR_PALETTE[len(st.session_state.category_colors) % len(COLOR_PALETTE)]
+    return st.session_state.category_colors[category]
+
+
 def get_category_color(category):
-    """Get color for a category (with fallback for custom categories)"""
-    return CATEGORY_COLORS.get(category,
-                               "#832632")  # Fallback to burgundy for custom
+    """Get color for a category"""
+    if 'category_colors' not in st.session_state:
+        st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+    
+    # If category doesn't have a color, assign one
+    if category not in st.session_state.category_colors:
+        return assign_color_to_category(category)
+    
+    return st.session_state.category_colors[category]
 
 
 # AI categorization function (categorization only - no summary)
@@ -273,6 +310,8 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = "summarize"
 if 'chat_messages' not in st.session_state:
     st.session_state.chat_messages = []
+if 'category_colors' not in st.session_state:
+    st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
 
 # Sidebar
 with st.sidebar:
@@ -338,7 +377,9 @@ with st.sidebar:
             all_cats = get_all_categories()
             if clean_name.lower() not in [c.lower() for c in all_cats]:
                 st.session_state.custom_categories.append(clean_name)
-                st.success(f"✅ Added '{clean_name}'")
+                # Auto-assign a color to the new category
+                color = assign_color_to_category(clean_name)
+                st.success(f"✅ Added '{clean_name}' with color {color}")
                 st.rerun()
             else:
                 st.error(f"❌ Category '{clean_name}' already exists")
@@ -416,19 +457,10 @@ if st.session_state.current_page == "summarize":
                 "Review the AI categorization. You can edit categories or add custom ones in the sidebar."
             )
 
-            # Add color indicator column with dot
-            df_with_indicator = df.copy()
-            df_with_indicator['●'] = df_with_indicator['category'].apply(
-                lambda cat: '●')
-
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
-                df_with_indicator,
+                df,
                 column_config={
-                    "●":
-                    st.column_config.TextColumn("",
-                                                width="small",
-                                                disabled=True),
                     "category":
                     st.column_config.SelectboxColumn(
                         "Category",
@@ -441,30 +473,25 @@ if st.session_state.current_page == "summarize":
                 width='stretch',
                 height=400,
                 hide_index=False,
-                key="transaction_editor",
-                column_order=["date", "payee", "amount", "●", "category"])
-
-            # Show category legend with colored badges
-            st.caption("**Category Colors:**")
-            if 'category' in edited_df.columns:
-                legend_cols = st.columns(
-                    min(len(edited_df['category'].unique()), 5))
-                for idx, category in enumerate(
-                        list(edited_df['category'].unique())[:5]):
-                    with legend_cols[idx]:
-                        color = get_category_color(category)
-                        st.markdown(
-                            f'<div style="background: {color}; color: white; padding: 5px 10px; border-radius: 15px; text-align: center; font-size: 12px; margin: 2px;">{category}</div>',
-                            unsafe_allow_html=True)
+                key="transaction_editor")
 
             # Update session state if data was edited
-            if not edited_df.equals(df_with_indicator):
-                # Remove indicator column before saving (it's computed dynamically)
-                edited_df_clean = edited_df.drop(columns=['●'])
-                st.session_state.transactions = edited_df_clean
+            if not edited_df.equals(df):
+                st.session_state.transactions = edited_df
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
                 st.session_state.summary = None
+            
+            # Refresh categorization button
+            if st.button("🔄 Refresh Categorization", help="Re-run AI categorization on all transactions"):
+                with st.spinner("Re-categorizing transactions..."):
+                    categorized_df = categorize_transactions(edited_df.copy())
+                    if categorized_df is not None:
+                        st.session_state.transactions = categorized_df
+                        st.session_state.analyzed = False
+                        st.session_state.summary = None
+                        st.success("✅ Transactions re-categorized!")
+                        st.rerun()
 
             st.divider()
 
@@ -682,22 +709,9 @@ elif st.session_state.current_page == "analyze":
                 # Display transactions with styled dataframe
                 display_df = df.head(10).copy()
 
-                # Add color indicator column with colored circle emoji
-                display_df['●'] = display_df['category'].apply(lambda cat: '●')
-
-                # Custom CSS for styled table
-                st.markdown("""
-                <style>
-                    .stDataFrame {
-                        font-family: 'Manrope', Arial, sans-serif;
-                    }
-                </style>
-                """,
-                            unsafe_allow_html=True)
-
-                # Display with column configuration for better styling
+                # Display with column configuration
                 st.dataframe(
-                    display_df[['date', 'payee', 'amount', '●', 'category']],
+                    display_df[['date', 'payee', 'amount', 'category']],
                     column_config={
                         "date":
                         st.column_config.TextColumn("DATE", width="small"),
@@ -707,24 +721,12 @@ elif st.session_state.current_page == "analyze":
                         st.column_config.NumberColumn("VALUE",
                                                       format="£%.2f",
                                                       width="small"),
-                        "●":
-                        st.column_config.TextColumn("", width="small"),
                         "category":
                         st.column_config.TextColumn("CATEGORY",
                                                     width="medium"),
                     },
                     use_container_width=True,
                     hide_index=True)
-
-                # Show category legend with colored badges
-                st.caption("**Categories:**")
-                legend_cols = st.columns(len(df['category'].unique()))
-                for idx, category in enumerate(df['category'].unique()):
-                    with legend_cols[idx]:
-                        color = get_category_color(category)
-                        st.markdown(
-                            f'<div style="background: {color}; color: white; padding: 3px 8px; border-radius: 12px; text-align: center; font-size: 11px; margin: 2px;">{category}</div>',
-                            unsafe_allow_html=True)
 
         with chat_col:
             # Create container for entire chat section
