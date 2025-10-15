@@ -1,3 +1,4 @@
+from typing import Literal
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -724,13 +725,10 @@ elif st.session_state.current_page == "analyze":
                     st.info("Ask me about your spending patterns!")
 
             # Chat input
-            # user_question = st.text_input(
-            #    "Ask a question",
-            #    placeholder="Explore your spending...",
-            #    key="chat_input",
-            #    label_visibility="collapsed"
-            #)
-            user_question = st.chat_message("user", width="stretch")
+            user_question = st.chat_input(
+                placeholder="Explore your spending...",
+                key="chat_input",
+                accept_file=False)
 
             if st.button("Send", type="primary", use_container_width=True):
                 if user_question and user_question.strip():
