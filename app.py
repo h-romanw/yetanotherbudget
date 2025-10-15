@@ -707,34 +707,43 @@ elif st.session_state.current_page == "analyze":
                             unsafe_allow_html=True)
 
         with chat_col:
-            # White box container for chat with fixed height
-            st.markdown("""
-            <div style='background: white; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; height: 600px;'>
-                <h3 style='color: #52181E; margin: 0 0 15px 0;'>CHAT</h3>
-            </div>
-            """, unsafe_allow_html=True)
+            # Create container for entire chat section
+            chat_container = st.container()
             
-            # Scrollable chat messages container with fixed height
-            chat_messages_container = st.container(height=450)
-            
-            with chat_messages_container:
-                if st.session_state.chat_messages:
-                    for idx, msg in enumerate(st.session_state.chat_messages):
-                        if msg['role'] == 'user':
-                            with st.chat_message("user"):
-                                st.markdown(msg['content'])
-                        else:
-                            # AI message with collapsible expander
-                            with st.chat_message("assistant"):
-                                with st.expander("View response", expanded=(idx == len(st.session_state.chat_messages) - 1)):
+            with chat_container:
+                # Chat header
+                st.markdown("""
+                <div style='background: white; padding: 20px 20px 10px 20px; border-radius: 10px 10px 0 0;'>
+                    <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Scrollable chat messages container with fixed height
+                chat_messages_container = st.container(height=450)
+                
+                with chat_messages_container:
+                    if st.session_state.chat_messages:
+                        for idx, msg in enumerate(st.session_state.chat_messages):
+                            if msg['role'] == 'user':
+                                with st.chat_message("user"):
                                     st.markdown(msg['content'])
-                else:
-                    st.info("Ask me about your spending patterns!")
-            
-            # Chat input stays fixed at bottom
-            user_question = st.chat_input(
-                placeholder="Explore your spending...",
-                key="chat_input")
+                            else:
+                                # AI message with collapsible expander
+                                with st.chat_message("assistant"):
+                                    with st.expander("View response", expanded=(idx == len(st.session_state.chat_messages) - 1)):
+                                        st.markdown(msg['content'])
+                    else:
+                        st.info("Ask me about your spending patterns!")
+                
+                # Chat input at bottom with white background
+                st.markdown("""
+                <div style='background: white; padding: 0 20px 20px 20px; border-radius: 0 0 10px 10px;'>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                user_question = st.chat_input(
+                    placeholder="Explore your spending...",
+                    key="chat_input")
 
             if user_question and user_question.strip():
                 # Add user message
