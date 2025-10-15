@@ -100,6 +100,82 @@ def get_category_color(category):
     return st.session_state.category_colors[category]
 
 
+# Smart CSV parser using AI to identify columns
+def parse_csv_with_ai(uploaded_file):
+    """Use AI to intelligently parse any CSV format and extract required columns"""
+    
+    if not client:
+        return None, "OpenAI API key not configured"
+    
+    try:
+        # Read the CSV file
+        df_raw = pd.read_csv(uploaded_file)
+        
+        # Get column names and first 3 rows as sample
+        columns = df_raw.columns.tolist()
+        sample_rows = df_raw.head(3).to_dict('records')
+        
+        # Create prompt for AI to identify columns
+        sample_data = "\n".join([
+            f"Row {i+1}: " + ", ".join([f"{col}={row[col]}" for col in columns])
+            for i, row in enumerate(sample_rows)
+        ])
+        
+        prompt = f"""Analyze this CSV structure and identify which columns contain the following information:
+- Date: The transaction date
+- Payee: The merchant/payee name  
+- Amount: The transaction amount (debit/spending amount, as positive number)
+- Balance: The account balance after transaction (OPTIONAL - may not exist)
+
+CSV Columns: {', '.join(columns)}
+
+Sample Data:
+{sample_data}
+
+Return a JSON object mapping our standard field names to the CSV column names:
+{{
+  "date": "<actual_column_name>",
+  "payee": "<actual_column_name>",
+  "amount": "<actual_column_name>",
+  "balance": "<actual_column_name_or_null>"
+}}
+
+If balance column doesn't exist, set it to null."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{
+                "role": "system",
+                "content": "You are a CSV parsing assistant. Analyze column names and data to identify the correct mappings. Respond only with valid JSON."
+            }, {
+                "role": "user",
+                "content": prompt
+            }],
+            temperature=0.1,
+            response_format={"type": "json_object"})
+        
+        mapping = json.loads(response.choices[0].message.content)
+        
+        # Validate required fields
+        if not all(key in mapping for key in ['date', 'payee', 'amount']):
+            return None, "AI couldn't identify required columns (date, payee, amount)"
+        
+        # Build the standardized dataframe
+        df_standard = pd.DataFrame()
+        df_standard['date'] = df_raw[mapping['date']]
+        df_standard['payee'] = df_raw[mapping['payee']]
+        df_standard['amount'] = df_raw[mapping['amount']].abs()  # Ensure positive amounts
+        
+        # Add balance if it exists
+        if mapping.get('balance') and mapping['balance'] in df_raw.columns:
+            df_standard['balance'] = df_raw[mapping['balance']]
+        
+        return df_standard, None
+        
+    except Exception as e:
+        return None, f"Error parsing CSV: {str(e)}"
+
+
 # AI categorization function (categorization only - no summary)
 def categorize_transactions(df):
     """Batch categorize transactions using AI"""
@@ -399,34 +475,40 @@ if st.session_state.current_page == "summarize":
         uploaded_file = st.file_uploader(
             "Upload your bank statement CSV",
             type=['csv'],
-            help="CSV should contain columns: date, payee, amount")
+            help="Upload any CSV bank statement - AI will automatically identify the columns")
 
         if uploaded_file is not None:
-            try:
-                df = pd.read_csv(uploaded_file)
-
-                # Validate columns
-                required_cols = ['date', 'payee', 'amount']
-                if not all(col in df.columns for col in required_cols):
-                    st.error(
-                        f"❌ CSV must contain columns: {', '.join(required_cols)}"
-                    )
-                else:
+            with st.spinner("🤖 Analyzing CSV format..."):
+                df, error = parse_csv_with_ai(uploaded_file)
+                
+                if error:
+                    st.error(f"❌ {error}")
+                elif df is not None:
+                    st.success(f"✅ Successfully parsed {len(df)} transactions" + 
+                              (" (with balance tracking)" if 'balance' in df.columns else ""))
                     st.session_state.transactions = df
                     st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Error reading CSV: {str(e)}")
         else:
             # Empty state
-            st.info("👆 Upload a CSV file to get started")
+            st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
 
             # Sample data format
-            with st.expander("💡 Expected CSV Format"):
+            with st.expander("💡 Supported Formats"):
+                st.markdown("""
+                The AI can parse **any CSV format** that contains:
+                - **Date** (transaction date)
+                - **Payee/Description** (merchant name)
+                - **Amount** (transaction amount)
+                - **Balance** *(optional - account balance)*
+                
+                Column names don't matter - the AI will figure it out!
+                """)
+                
                 sample_df = pd.DataFrame({
                     'date': ['12/10/2025', '11/10/2025'],
                     'payee': ['TESCO STORES', 'RENT PAYMENT'],
-                    'amount': [35.64, 1776.50]
+                    'amount': [35.64, 1776.50],
+                    'balance': [1500.36, 1536.00]
                 })
                 st.dataframe(sample_df, width='stretch')
 
