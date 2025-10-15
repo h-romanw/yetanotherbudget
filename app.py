@@ -239,6 +239,15 @@ st.markdown("""
         fill: white !important;
     }
 
+    /* Reduce chat message text size */
+    .stChatMessage {
+        font-size: 14px !important;
+    }
+    
+    .stChatMessage p {
+        font-size: 14px !important;
+    }
+
 </style>
 """,
             unsafe_allow_html=True)
@@ -808,7 +817,7 @@ Provide a helpful, specific response using the transaction data above. You can a
                                     "content": context
                                 }],
                                 temperature=0.7,
-                                max_tokens=300)
+                                max_tokens=1000)
 
                             ai_response = response.choices[
                                 0].message.content
