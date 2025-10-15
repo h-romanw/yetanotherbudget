@@ -656,6 +656,8 @@ elif st.session_state.current_page == "analyze":
                                               ])['amount'].sum().reset_index()
 
             # Create line chart with matching colors from donut chart
+            import plotly.graph_objects as go
+            
             fig_line = px.line(
                 timeline_data,
                 x='date',
@@ -666,29 +668,29 @@ elif st.session_state.current_page == "analyze":
                     for cat in timeline_data['category'].unique()
                 })
 
-            fig_line.update_traces(mode='lines',
-                                   line=dict(width=3))
+            fig_line.update_traces(mode='lines', line=dict(width=3))
 
-            fig_line.update_layout(height=300,
-                                   showlegend=True,
-                                   legend=dict(orientation="h",
-                                               yanchor="bottom",
-                                               y=1.02,
-                                               xanchor="left",
-                                               x=0),
-                                   xaxis=dict(showgrid=True,
-                                              gridcolor='#E0E0E0',
-                                              zeroline=False),
-                                   yaxis=dict(showgrid=True,
-                                              gridcolor='#E0E0E0',
-                                              zeroline=False),
-                                   font=dict(
-                                       family="Manrope, Arial, sans-serif",
-                                       size=12,
-                                       color="#000000"),
-                                   margin=dict(t=50, b=20, l=20, r=20),
-                                   paper_bgcolor='white',
-                                   plot_bgcolor='white')
+            fig_line.update_layout(
+                height=300,
+                showlegend=True,
+                legend=dict(orientation="h",
+                           yanchor="bottom",
+                           y=1.02,
+                           xanchor="left",
+                           x=0),
+                xaxis=dict(showgrid=True,
+                          gridcolor='#E0E0E0',
+                          zeroline=False),
+                yaxis=dict(showgrid=True,
+                          gridcolor='#E0E0E0',
+                          zeroline=False),
+                font=dict(family="Manrope, Arial, sans-serif",
+                         size=12,
+                         color="#000000"),
+                margin=dict(t=50, b=20, l=20, r=20),
+                paper_bgcolor='white',
+                plot_bgcolor='white'
+            )
 
             st.plotly_chart(fig_line, use_container_width=True)
 
