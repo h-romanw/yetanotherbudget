@@ -203,7 +203,7 @@ st.markdown("""
         background-color: #e2999b;
         color: #000000;
     }
-    
+
     /* Main content */
     .main {
         background-color: #f5f5f5;
@@ -214,7 +214,7 @@ st.markdown("""
         background-color: #e2999b;
         color: #000000;
     } */
-    
+
     /* Headers */
     h1, h2, h3 {
         color: #000000 !important;
@@ -223,7 +223,7 @@ st.markdown("""
     .stButton>button[disabled] {
         color: #000000 !important;
     }
-    
+
     /* Primary button */
     .stButton>button[kind="primary"] {
         background-color: #832632;
@@ -234,7 +234,7 @@ st.markdown("""
     .stChatInput button svg {
         fill: white !important;
     }
-    
+
     .stChatInput button path {
         fill: white !important;
     }
@@ -243,9 +243,15 @@ st.markdown("""
     .stChatMessage {
         font-size: 14px !important;
     }
-    
+
     .stChatMessage p {
         font-size: 14px !important;
+    }
+
+    /* Burgundy background for user messages */
+    .stChatMessage[data-testid="chat-message-user"] div:last-child div div div {
+        background-color: #832632 !important; /* Burgundy */
+        color: white !important;
     }
 
 </style>
@@ -545,14 +551,14 @@ elif st.session_state.current_page == "analyze":
         # Calculate metrics
         total_spent = df['amount'].sum()
 
-        # Create three column layout: Balance + Chart | Chat
+        # Create two columns for main content and chat
         main_col, chat_col = st.columns([2, 1])
 
         with main_col:
             # Balance card
             st.markdown(f"""
             <div style='background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;'>
-                <h3 style='color: #52181E; margin: 0 0 10px 0;'>BALANCE</h3>
+                <h3 style='color: #52181E; margin: 0 0 10px 0;'>SPENT</h3>
                 <h2 style='color: #000; margin: 0;'>£{total_spent:,.2f}</h2>
             </div>
             """,
@@ -623,16 +629,21 @@ elif st.session_state.current_page == "analyze":
                                               ])['amount'].sum().reset_index()
 
             # Create line chart with gradient fills
-            fig_line = px.line(
-                timeline_data,
-                x='date',
-                y='amount',
-                color='category',
-                color_discrete_map={
-                    cat: get_category_color(cat)
-                    for cat in timeline_data['category'].unique()
-                })
-
+            # fig_line = px.line(
+            #     timeline_data,
+            #     x='date',
+            #     y='amount',
+            #     color='category',
+            #     color_discrete_map={
+            #         cat: get_category_color(cat)
+            #         for cat in timeline_data['category'].unique()
+            #     })
+            fig_line = st.line_chart(df_chart,
+                                     x='date',
+                                     y='amount',
+                                     x_label='Date',
+                                     y_label='Amount',
+                                     color='category')
             # # Update traces to add gradient-like fills
             # for trace in fig_line.data:
             #     trace.update(mode='lines',
@@ -718,49 +729,53 @@ elif st.session_state.current_page == "analyze":
         with chat_col:
             # Create container for entire chat section
             chat_container = st.container()
-            
+
             with chat_container:
                 # Chat header
                 st.markdown("""
                 <div style='background: white; padding: 20px 20px 10px 20px; border-radius: 10px 10px 0 0;'>
                     <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
                 </div>
-                """, unsafe_allow_html=True)
-                
+                """,
+                            unsafe_allow_html=True)
+
                 # Scrollable chat messages container with fixed height
                 chat_messages_container = st.container(height=450)
-                
+
                 with chat_messages_container:
                     if st.session_state.chat_messages:
-                        for idx, msg in enumerate(st.session_state.chat_messages):
+                        for idx, msg in enumerate(
+                                st.session_state.chat_messages):
                             if msg['role'] == 'user':
                                 with st.chat_message("user"):
                                     st.markdown(msg['content'])
                             else:
                                 # AI message with collapsible expander
                                 with st.chat_message("assistant"):
-                                    with st.expander("View response", expanded=(idx == len(st.session_state.chat_messages) - 1)):
+                                    with st.expander(
+                                            "View response",
+                                            expanded=(idx == len(
+                                                st.session_state.chat_messages)
+                                                      - 1)):
                                         st.markdown(msg['content'])
                     else:
                         st.info("Ask me about your spending patterns!")
-                
+
                 # Chat input at bottom with white background
                 st.markdown("""
-                <div style='background: white; padding: 0 16px 16px 16px; border-radius: 0 0 8px 8px;'>
+                <div style='background: white; padding: 0 20px 20px 20px;'>
                 </div>
-                """, unsafe_allow_html=True)
-                
+                """,
+                            unsafe_allow_html=True)
+
                 user_question = st.chat_input(
-                    placeholder="Explore your spending...",
-                    key="chat_input")
+                    placeholder="Explore your spending...", key="chat_input")
 
             if user_question and user_question.strip():
                 # Add user message
                 st.session_state.chat_messages.append({
-                    'role':
-                    'user',
-                    'content':
-                    user_question
+                    'role': 'user',
+                    'content': user_question
                 })
 
                 # Generate AI response
@@ -775,8 +790,7 @@ elif st.session_state.current_page == "analyze":
                     df_with_dates['date'] = pd.to_datetime(
                         df_with_dates['date'], format='%d/%m/%Y')
                     daily_spending = df_with_dates.groupby(
-                        'date')['amount'].sum().sort_values(
-                            ascending=False)
+                        'date')['amount'].sum().sort_values(ascending=False)
 
                     # Create transaction list for AI
                     transactions_list = []
@@ -819,8 +833,7 @@ Provide a helpful, specific response using the transaction data above. You can a
                                 temperature=0.7,
                                 max_tokens=1000)
 
-                            ai_response = response.choices[
-                                0].message.content
+                            ai_response = response.choices[0].message.content
 
                             # Add AI message
                             st.session_state.chat_messages.append({
@@ -832,7 +845,6 @@ Provide a helpful, specific response using the transaction data above. You can a
 
                             st.rerun()
                         except Exception as e:
-                            st.error(
-                                f"Error generating response: {str(e)}")
+                            st.error(f"Error generating response: {str(e)}")
                     else:
                         st.error("OpenAI API key not configured")
