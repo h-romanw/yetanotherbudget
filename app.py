@@ -655,32 +655,27 @@ elif st.session_state.current_page == "analyze":
             timeline_data = df_chart.groupby(['date', 'category'
                                               ])['amount'].sum().reset_index()
 
-            # Create line chart with gradient fills
-            # fig_line = px.line(
-            #     timeline_data,
-            #     x='date',
-            #     y='amount',
-            #     color='category',
-            #     color_discrete_map={
-            #         cat: get_category_color(cat)
-            #         for cat in timeline_data['category'].unique()
-            #     })
-            fig_line = st.line_chart(df_chart,
-                                     x='date',
-                                     y='amount',
-                                     x_label='Date',
-                                     y_label='Amount',
-                                     color='category')
-            # # Update traces to add gradient-like fills
-            # for trace in fig_line.data:
-            #     trace.update(mode='lines',
-            #                  line=dict(width=3),
-            #                  fill='tonexty',
-            #                  fillcolor=trace.line.color.replace(
-            #                      'rgb', 'rgba').replace(')', ', 0.2)'))
+            # Create line chart with matching colors from donut chart
+            fig_line = px.line(
+                timeline_data,
+                x='date',
+                y='amount',
+                color='category',
+                color_discrete_map={
+                    cat: get_category_color(cat)
+                    for cat in timeline_data['category'].unique()
+                })
+
+            fig_line.update_traces(mode='lines',
+                                   line=dict(width=3))
 
             fig_line.update_layout(height=300,
-                                   showlegend=False,
+                                   showlegend=True,
+                                   legend=dict(orientation="h",
+                                               yanchor="bottom",
+                                               y=1.02,
+                                               xanchor="left",
+                                               x=0),
                                    xaxis=dict(showgrid=True,
                                               gridcolor='#E0E0E0',
                                               zeroline=False),
@@ -691,7 +686,7 @@ elif st.session_state.current_page == "analyze":
                                        family="Manrope, Arial, sans-serif",
                                        size=12,
                                        color="#000000"),
-                                   margin=dict(t=20, b=20, l=20, r=20),
+                                   margin=dict(t=50, b=20, l=20, r=20),
                                    paper_bgcolor='white',
                                    plot_bgcolor='white')
 
