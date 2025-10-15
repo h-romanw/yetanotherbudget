@@ -203,7 +203,7 @@ st.markdown("""
         background-color: #e2999b;
         color: #000000;
     }
-    
+
     /* Main content */
     .main {
         background-color: #f5f5f5;
@@ -214,7 +214,7 @@ st.markdown("""
         background-color: #e2999b;
         color: #000000;
     } */
-    
+
     /* Headers */
     h1, h2, h3 {
         color: #000000 !important;
@@ -223,7 +223,7 @@ st.markdown("""
     .stButton>button[disabled] {
         color: #000000 !important;
     }
-    
+
     /* Primary button */
     .stButton>button[kind="primary"] {
         background-color: #832632;
@@ -234,7 +234,7 @@ st.markdown("""
     .stChatInput button svg {
         fill: white !important;
     }
-    
+
     .stChatInput button path {
         fill: white !important;
     }
@@ -243,9 +243,15 @@ st.markdown("""
     .stChatMessage {
         font-size: 14px !important;
     }
-    
+
     .stChatMessage p {
         font-size: 14px !important;
+    }
+
+    /* Burgundy background for user messages */
+    .stChatMessage[data-testid="chat-message-user"] div:last-child div div div {
+        background-color: #832632 !important; /* Burgundy */
+        color: white !important;
     }
 
 </style>
@@ -545,7 +551,7 @@ elif st.session_state.current_page == "analyze":
         # Calculate metrics
         total_spent = df['amount'].sum()
 
-        # Create three column layout: Balance + Chart | Chat
+        # Create two columns for main content and chat
         main_col, chat_col = st.columns([2, 1])
 
         with main_col:
@@ -718,7 +724,7 @@ elif st.session_state.current_page == "analyze":
         with chat_col:
             # Create container for entire chat section
             chat_container = st.container()
-            
+
             with chat_container:
                 # Chat header
                 st.markdown("""
@@ -726,10 +732,10 @@ elif st.session_state.current_page == "analyze":
                     <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 # Scrollable chat messages container with fixed height
                 chat_messages_container = st.container(height=450)
-                
+
                 with chat_messages_container:
                     if st.session_state.chat_messages:
                         for idx, msg in enumerate(st.session_state.chat_messages):
@@ -743,13 +749,13 @@ elif st.session_state.current_page == "analyze":
                                         st.markdown(msg['content'])
                     else:
                         st.info("Ask me about your spending patterns!")
-                
+
                 # Chat input at bottom with white background
                 st.markdown("""
-                <div style='background: white; padding: 0 16px 16px 16px; border-radius: 0 0 8px 8px;'>
+                <div style='background: white; padding: 0 20px 20px 20px;'>
                 </div>
                 """, unsafe_allow_html=True)
-                
+
                 user_question = st.chat_input(
                     placeholder="Explore your spending...",
                     key="chat_input")
