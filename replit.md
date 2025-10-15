@@ -1,86 +1,81 @@
-# Overview
+# Yet Another Budget - AI-Powered Spending Analysis
 
-yetanotherbudget is an AI-powered spending summarization and budgeting tool. The application helps users track their expenses and manage their budgets through intelligent analysis and summarization of spending patterns.
+## Overview
 
-# User Preferences
+Yet Another Budget is a personal finance application that analyzes spending patterns using AI. The application allows users to import financial data, view transactions, and understand their spending habits through AI-powered categorization and insights.
+
+## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
-# System Architecture
+## System Architecture
 
-## Application Structure
+### Frontend Architecture
 
-The repository is currently in its initial setup phase. Based on the project name and description, the system is designed to be an AI-powered financial tracking application.
+**Technology Stack**
+- Streamlit as the primary web framework for rapid UI development
+- Python-based reactive components with automatic state management
+- Plotly Express for interactive data visualizations
+- Pandas for data manipulation and transaction processing
 
-### Core Features (Planned)
-- **Spending Tracking**: Monitor and categorize user expenses
-- **AI Summarization**: Intelligent analysis of spending patterns using AI/LLM capabilities
-- **Budget Management**: Set and track budgets against actual spending
+**UI Framework Decision**
+- Streamlit's built-in component library for forms, charts, and tables
+- Custom theming via `.streamlit/config.toml` for brand colors
+- Wide layout mode optimized for data visualization
+- Rationale: Streamlit enables rapid development of data-focused applications without frontend framework complexity
 
-### Technology Stack
+**Design System**
+- Custom color scheme: Primary (#832632), Background (#f5f5f5), Secondary (#e2999b), Text (#52181e)
+- Wide layout configuration for better data table viewing
+- Collapsed sidebar by default to maximize content area
+- Custom branding through page configuration (icon, title)
 
-The application is built to run on Replit, suggesting:
-- Cloud-native deployment model
-- Potentially using Replit's built-in database solutions
-- Web-based interface for user interaction
+**State Management Approach**
+- Streamlit's session_state for persistent user data across reruns
+- Custom categories stored in session state (`custom_categories`)
+- Automatic re-execution model handles UI updates reactively
+- No explicit client-side state management required
 
-### Architectural Approach
+### Backend Architecture
 
-**Problem**: Users need an accessible way to understand their spending habits and manage budgets
-**Solution**: AI-powered analysis that provides insights and summaries in natural language
-**Rationale**: Combining traditional budget tracking with AI makes financial data more interpretable and actionable
+**Server Framework**
+- Streamlit's built-in server handles HTTP requests and WebSocket connections
+- Python backend running on port 5000, bound to 0.0.0.0 for external access
+- Single-file application structure (app.py) with modular function organization
 
-## Data Architecture
+**API Structure**
+- OpenAI API integration for AI-powered transaction categorization
+- Batch processing approach for categorizing multiple transactions
+- Environment-based API key management via Replit Secrets
+- Error handling for missing API credentials with user-friendly messaging
 
-### Expected Data Models
-- **Transactions**: Store individual spending records with categories, amounts, dates, and descriptions
-- **Budgets**: Define spending limits by category or time period
-- **Users**: Manage user accounts and preferences
-- **AI Summaries**: Cache generated insights and analyses
+**Data Processing Pipeline**
+- Pandas DataFrames as the core data structure for transactions
+- AI-powered categorization with predefined category taxonomy
+- Support for custom user-defined categories alongside defaults
+- Batch processing to optimize API calls and improve performance
 
-### Storage Considerations
-- Likely to use a relational database (potentially Postgres via Drizzle ORM)
-- Transaction data requires careful indexing for efficient querying by date and category
-- User data must be isolated for privacy and security
+**Category System**
+- Predefined categories: Groceries, Dining & Takeout, Bills & Utilities, Transport, Shopping, Entertainment, Health & Fitness, Travel, Other
+- Extensible system allowing users to add custom categories
+- Combined category list merges defaults with user additions
+- Global category constants for consistency across the application
 
-## AI Integration
+## External Dependencies
 
-### Natural Language Processing
-**Problem**: Raw transaction data is difficult to interpret
-**Solution**: Use LLM APIs to generate human-readable summaries and insights
-**Approach**: 
-- Aggregate transaction data over specified periods
-- Generate contextual summaries of spending patterns
-- Provide actionable budget recommendations
+**AI Services**
+- OpenAI API for transaction categorization and spending analysis
+- GPT models used for natural language understanding of transaction descriptions
+- API key managed through environment variables (OPENAI_API_KEY)
 
-### Potential AI Providers
-- OpenAI GPT models for text generation
-- Anthropic Claude for analysis
-- Other LLM APIs depending on cost and performance requirements
+**Python Libraries**
+- streamlit: Web application framework and server
+- pandas: Data manipulation and analysis
+- plotly: Interactive visualization library (Plotly Express)
+- openai: Official OpenAI Python client
 
-# External Dependencies
-
-## Expected Third-Party Services
-
-### AI/LLM Services
-- OpenAI API or similar for spending analysis and summarization
-- Requires API key management and rate limiting considerations
-
-### Database
-- Likely Postgres database for relational data storage
-- May use Drizzle ORM for type-safe database queries
-- Could leverage Replit's integrated database offerings
-
-### Authentication
-- User authentication system (to be determined)
-- Options: Replit Auth, Auth0, Clerk, or custom JWT implementation
-
-### Potential Integrations
-- Banking APIs (Plaid, Stripe, etc.) for automatic transaction import
-- Export capabilities (CSV, PDF) for reports
-- Calendar integrations for time-based budget periods
-
-## Development Tools
-- Replit platform for hosting and deployment
-- Environment variable management for API keys and secrets
-- Version control through Git/GitHub
+**Deployment Environment**
+- Replit hosting platform
+- Environment secrets management for API keys
+- Port 5000 configured for web traffic
+- Python 3 runtime environment
