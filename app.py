@@ -228,7 +228,13 @@ st.markdown("""
     .stButton>button[kind="primary"] {
         background-color: #832632;
         color: white;
+    }
 
+    /* Chat input send button icon */
+    .stChatInput button[kind="primary"] svg {
+        fill: white !important;
+        color: white !important;
+    }
 
 </style>
 """,
