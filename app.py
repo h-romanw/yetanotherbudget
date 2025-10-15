@@ -132,12 +132,18 @@ CSV Columns: {', '.join(columns)}
 Sample Data:
 {sample_data}
 
-Return a JSON object mapping our standard field names to the CSV column names:
+Also determine the date format by examining the date values. Common formats:
+- "day_first": dd/mm/yyyy or dd-mm-yyyy (e.g., 25/12/2024 for Christmas)
+- "month_first": mm/dd/yyyy or mm-dd-yyyy (e.g., 12/25/2024 for Christmas)
+- "iso": yyyy-mm-dd (e.g., 2024-12-25)
+
+Return a JSON object with column mappings AND date format:
 {{
   "date": "<actual_column_name>",
   "payee": "<actual_column_name>",
   "amount": "<actual_column_name>",
-  "balance": "<actual_column_name_or_null>"
+  "balance": "<actual_column_name_or_null>",
+  "date_format": "day_first|month_first|iso"
 }}
 
 If balance column doesn't exist, set it to null."""
@@ -166,7 +172,62 @@ If balance column doesn't exist, set it to null."""
         
         # Build the standardized dataframe
         df_standard = pd.DataFrame()
-        df_standard['date'] = df_raw[mapping['date']]
+        
+        # Parse dates with validation - try AI's suggestion first, then fall back
+        date_format = mapping.get('date_format', 'day_first')
+        
+        # Try parsing with different formats
+        parsing_attempts = []
+        
+        # Try AI's suggested format first
+        if date_format == 'month_first':
+            dates_suggested = pd.to_datetime(df_raw[mapping['date']], dayfirst=False, errors='coerce')
+            parsing_attempts.append(('month_first', dates_suggested))
+        elif date_format == 'iso':
+            dates_suggested = pd.to_datetime(df_raw[mapping['date']], errors='coerce')
+            parsing_attempts.append(('iso', dates_suggested))
+        else:
+            dates_suggested = pd.to_datetime(df_raw[mapping['date']], dayfirst=True, errors='coerce')
+            parsing_attempts.append(('day_first', dates_suggested))
+        
+        # Always try alternative formats as fallback
+        if date_format != 'day_first':
+            parsing_attempts.append(('day_first', pd.to_datetime(df_raw[mapping['date']], dayfirst=True, errors='coerce')))
+        if date_format != 'month_first':
+            parsing_attempts.append(('month_first', pd.to_datetime(df_raw[mapping['date']], dayfirst=False, errors='coerce')))
+        
+        # Sort by NaT count to find best parsing
+        parsing_attempts.sort(key=lambda x: x[1].isna().sum())
+        
+        # Check if we have a clear winner or ambiguous data
+        if len(parsing_attempts) > 1:
+            best_nat_count = parsing_attempts[0][1].isna().sum()
+            second_best_nat_count = parsing_attempts[1][1].isna().sum()
+            
+            # If NaT counts are equal, the data is ambiguous - prefer AI's suggestion
+            if best_nat_count == second_best_nat_count:
+                # Find AI's suggested format in the attempts
+                for fmt, dates in parsing_attempts:
+                    if fmt == date_format:
+                        best_format, best_dates = fmt, dates
+                        break
+                else:
+                    # Fallback if AI's format not in attempts
+                    best_format, best_dates = parsing_attempts[0]
+            else:
+                # Clear winner - use it
+                best_format, best_dates = parsing_attempts[0]
+        else:
+            best_format, best_dates = parsing_attempts[0]
+        
+        # Validate: if too many NaT values, return error
+        nat_percentage = (best_dates.isna().sum() / len(df_raw)) * 100
+        if nat_percentage > 20:  # If more than 20% of dates are invalid
+            return None, f"Could not parse dates reliably. {nat_percentage:.1f}% of dates were invalid. Please check the date format in your CSV."
+        
+        # Use the best parsing result
+        df_standard['date'] = best_dates.dt.strftime('%d/%m/%Y')
+        
         df_standard['payee'] = df_raw[mapping['payee']]
         df_standard['amount'] = df_raw[mapping['amount']].abs()  # Ensure positive amounts
         
@@ -920,7 +981,8 @@ elif st.session_state.current_page == "analyze":
             # Parse dates and group by date and category
             df_chart = df.copy()
             df_chart['date'] = pd.to_datetime(df_chart['date'],
-                                              format='%d/%m/%Y')
+                                              format='%d/%m/%Y', errors='coerce')
+            df_chart = df_chart.dropna(subset=['date'])
 
             # Group by date and category
             timeline_data = df_chart.groupby(['date', 'category'
@@ -1101,7 +1163,8 @@ elif st.session_state.current_page == "analyze":
                     # Add daily spending summary
                     df_with_dates = df.copy()
                     df_with_dates['date'] = pd.to_datetime(
-                        df_with_dates['date'], format='%d/%m/%Y')
+                        df_with_dates['date'], format='%d/%m/%Y', errors='coerce')
+                    df_with_dates = df_with_dates.dropna(subset=['date'])
                     daily_spending = df_with_dates.groupby(
                         'date')['amount'].sum().sort_values(ascending=False)
 
@@ -1119,15 +1182,18 @@ elif st.session_state.current_page == "analyze":
                     
                     # Add balance info if available
                     balance_info = ""
-                    if 'balance' in df.columns:
-                        latest_balance = df_with_dates.sort_values('date').iloc[-1]['balance']
-                        earliest_balance = df_with_dates.sort_values('date').iloc[0]['balance']
-                        balance_info = f"""
+                    if 'balance' in df.columns and len(df_with_dates) > 0:
+                        try:
+                            latest_balance = df_with_dates.sort_values('date').iloc[-1]['balance']
+                            earliest_balance = df_with_dates.sort_values('date').iloc[0]['balance']
+                            balance_info = f"""
 BALANCE TRACKING:
 - Current balance: £{latest_balance:.2f}
 - Starting balance: £{earliest_balance:.2f}
 - Balance change: £{latest_balance - earliest_balance:.2f}
 """
+                        except:
+                            balance_info = ""
 
                     context = f"""User's spending data{f' for project: {st.session_state.current_project}' if st.session_state.current_project else ''}:
 
