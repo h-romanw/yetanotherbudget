@@ -231,9 +231,12 @@ st.markdown("""
     }
 
     /* Chat input send button icon */
-    .stChatInput button[kind="primary"] svg {
+    .stChatInput button svg {
         fill: white !important;
-        color: white !important;
+    }
+    
+    .stChatInput button path {
+        fill: white !important;
     }
 
 </style>
@@ -704,30 +707,17 @@ elif st.session_state.current_page == "analyze":
                             unsafe_allow_html=True)
 
         with chat_col:
-            # Chat header
+            # White box container for chat with fixed height
             st.markdown("""
-            <div style='background: white; padding: 20px 20px 10px 20px; border-radius: 10px 10px 0 0;'>
-                <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
+            <div style='background: white; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; height: 600px;'>
+                <h3 style='color: #52181E; margin: 0 0 15px 0;'>CHAT</h3>
             </div>
             """, unsafe_allow_html=True)
             
-            # Chat messages container with scrolling
-            st.markdown("""
-            <style>
-                .chat-container {
-                    background: white;
-                    padding: 10px 20px;
-                    max-height: 450px;
-                    overflow-y: auto;
-                    border-left: 1px solid #e0e0e0;
-                    border-right: 1px solid #e0e0e0;
-                }
-            </style>
-            """, unsafe_allow_html=True)
+            # Scrollable chat messages container with fixed height
+            chat_messages_container = st.container(height=450)
             
-            # Display chat messages using st.chat_message
-            chat_container = st.container()
-            with chat_container:
+            with chat_messages_container:
                 if st.session_state.chat_messages:
                     for idx, msg in enumerate(st.session_state.chat_messages):
                         if msg['role'] == 'user':
@@ -741,12 +731,7 @@ elif st.session_state.current_page == "analyze":
                 else:
                     st.info("Ask me about your spending patterns!")
             
-            # Chat input at bottom
-            st.markdown("""
-            <div style='background: white; padding: 0 20px 20px 20px; border-radius: 0 0 10px 10px; border-left: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0;'>
-            </div>
-            """, unsafe_allow_html=True)
-            
+            # Chat input stays fixed at bottom
             user_question = st.chat_input(
                 placeholder="Explore your spending...",
                 key="chat_input")
