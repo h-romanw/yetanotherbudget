@@ -704,8 +704,13 @@ elif st.session_state.current_page == "analyze":
                             unsafe_allow_html=True)
 
         with chat_col:
-            st.markdown("### CHAT")
-
+            # White box container for chat
+            st.markdown("""
+            <div style='background: white; padding: 20px; border-radius: 10px; height: 600px; display: flex; flex-direction: column;'>
+                <h3 style='color: #52181E; margin: 0 0 15px 0;'>CHAT</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
             # Chat messages container
             chat_container = st.container()
 
@@ -733,42 +738,40 @@ elif st.session_state.current_page == "analyze":
             # Chat input
             user_question = st.chat_input(
                 placeholder="Explore your spending...",
-                key="chat_input",
-                accept_file=False)
+                key="chat_input")
 
-            if st.button("Send", type="primary", use_container_width=True):
-                if user_question and user_question.strip():
-                    # Add user message
-                    st.session_state.chat_messages.append({
-                        'role':
-                        'user',
-                        'content':
-                        user_question
-                    })
+            if user_question and user_question.strip():
+                # Add user message
+                st.session_state.chat_messages.append({
+                    'role':
+                    'user',
+                    'content':
+                    user_question
+                })
 
-                    # Generate AI response
-                    with st.spinner("Thinking..."):
-                        # Prepare detailed context about spending
-                        category_summary = df.groupby(
-                            'category')['amount'].sum().to_dict()
-                        total = df['amount'].sum()
+                # Generate AI response
+                with st.spinner("Thinking..."):
+                    # Prepare detailed context about spending
+                    category_summary = df.groupby(
+                        'category')['amount'].sum().to_dict()
+                    total = df['amount'].sum()
 
-                        # Add daily spending summary
-                        df_with_dates = df.copy()
-                        df_with_dates['date'] = pd.to_datetime(
-                            df_with_dates['date'], format='%d/%m/%Y')
-                        daily_spending = df_with_dates.groupby(
-                            'date')['amount'].sum().sort_values(
-                                ascending=False)
+                    # Add daily spending summary
+                    df_with_dates = df.copy()
+                    df_with_dates['date'] = pd.to_datetime(
+                        df_with_dates['date'], format='%d/%m/%Y')
+                    daily_spending = df_with_dates.groupby(
+                        'date')['amount'].sum().sort_values(
+                            ascending=False)
 
-                        # Create transaction list for AI
-                        transactions_list = []
-                        for _, row in df.iterrows():
-                            transactions_list.append(
-                                f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
-                            )
+                    # Create transaction list for AI
+                    transactions_list = []
+                    for _, row in df.iterrows():
+                        transactions_list.append(
+                            f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
+                        )
 
-                        context = f"""User's spending data:
+                    context = f"""User's spending data:
 
 SUMMARY:
 - Total spent: £{total:.2f}
@@ -786,36 +789,36 @@ User question: {user_question}
 
 Provide a helpful, specific response using the transaction data above. You can analyze dates, identify patterns, compare days/categories, etc."""
 
-                        if client:
-                            try:
-                                response = client.chat.completions.create(
-                                    model="gpt-4o-mini",
-                                    messages=[{
-                                        "role":
-                                        "system",
-                                        "content":
-                                        "You are a helpful financial coaching assistant. Analyze the transaction data carefully and provide specific, data-driven insights."
-                                    }, {
-                                        "role": "user",
-                                        "content": context
-                                    }],
-                                    temperature=0.7,
-                                    max_tokens=300)
+                    if client:
+                        try:
+                            response = client.chat.completions.create(
+                                model="gpt-4o-mini",
+                                messages=[{
+                                    "role":
+                                    "system",
+                                    "content":
+                                    "You are a helpful financial coaching assistant. Analyze the transaction data carefully and provide specific, data-driven insights."
+                                }, {
+                                    "role": "user",
+                                    "content": context
+                                }],
+                                temperature=0.7,
+                                max_tokens=300)
 
-                                ai_response = response.choices[
-                                    0].message.content
+                            ai_response = response.choices[
+                                0].message.content
 
-                                # Add AI message
-                                st.session_state.chat_messages.append({
-                                    'role':
-                                    'assistant',
-                                    'content':
-                                    ai_response
-                                })
+                            # Add AI message
+                            st.session_state.chat_messages.append({
+                                'role':
+                                'assistant',
+                                'content':
+                                ai_response
+                            })
 
-                                st.rerun()
-                            except Exception as e:
-                                st.error(
-                                    f"Error generating response: {str(e)}")
-                        else:
-                            st.error("OpenAI API key not configured")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(
+                                f"Error generating response: {str(e)}")
+                    else:
+                        st.error("OpenAI API key not configured")
