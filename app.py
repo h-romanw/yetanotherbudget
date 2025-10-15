@@ -964,6 +964,49 @@ elif st.session_state.current_page == "analyze":
             )
 
             st.plotly_chart(fig_line, use_container_width=True)
+            
+            # Balance tracking chart (if balance column exists)
+            if 'balance' in df.columns:
+                st.markdown("### Account Balance Over Time")
+                
+                # Prepare balance data
+                balance_data = df_chart[['date', 'balance']].copy()
+                balance_data = balance_data.sort_values('date')
+                balance_data = balance_data.drop_duplicates(subset=['date'], keep='last')
+                
+                # Create balance line chart
+                fig_balance = px.line(
+                    balance_data,
+                    x='date',
+                    y='balance',
+                    markers=True
+                )
+                
+                fig_balance.update_traces(
+                    line=dict(color='#007AFF', width=3),
+                    marker=dict(size=8, color='#007AFF')
+                )
+                
+                fig_balance.update_layout(
+                    height=250,
+                    showlegend=False,
+                    xaxis=dict(showgrid=True,
+                              gridcolor='#E0E0E0',
+                              zeroline=False,
+                              title="Date"),
+                    yaxis=dict(showgrid=True,
+                              gridcolor='#E0E0E0',
+                              zeroline=False,
+                              title="Balance (£)"),
+                    font=dict(family="Manrope, Arial, sans-serif",
+                             size=12,
+                             color="#000000"),
+                    margin=dict(t=20, b=40, l=50, r=20),
+                    paper_bgcolor='white',
+                    plot_bgcolor='white'
+                )
+                
+                st.plotly_chart(fig_balance, use_container_width=True)
 
             # Transaction table with color-coded categories
             st.markdown("### Transactions")
@@ -1065,17 +1108,34 @@ elif st.session_state.current_page == "analyze":
                     # Create transaction list for AI
                     transactions_list = []
                     for _, row in df.iterrows():
-                        transactions_list.append(
-                            f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
-                        )
+                        if 'balance' in df.columns:
+                            transactions_list.append(
+                                f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']}) [Balance: £{row['balance']:.2f}]"
+                            )
+                        else:
+                            transactions_list.append(
+                                f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
+                            )
+                    
+                    # Add balance info if available
+                    balance_info = ""
+                    if 'balance' in df.columns:
+                        latest_balance = df_with_dates.sort_values('date').iloc[-1]['balance']
+                        earliest_balance = df_with_dates.sort_values('date').iloc[0]['balance']
+                        balance_info = f"""
+BALANCE TRACKING:
+- Current balance: £{latest_balance:.2f}
+- Starting balance: £{earliest_balance:.2f}
+- Balance change: £{latest_balance - earliest_balance:.2f}
+"""
 
-                    context = f"""User's spending data:
+                    context = f"""User's spending data{f' for project: {st.session_state.current_project}' if st.session_state.current_project else ''}:
 
 SUMMARY:
 - Total spent: £{total:.2f}
 - Number of transactions: {len(df)}
 - Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
-
+{balance_info}
 DAILY SPENDING (top 5 days):
 {chr(10).join([f'- {date.strftime("%d/%m/%Y")}: £{amount:.2f}' for date, amount in daily_spending.head(5).items()])}
 
@@ -1085,7 +1145,7 @@ ALL TRANSACTIONS:
 
 User question: {user_question}
 
-Provide a helpful, specific response using the transaction data above. You can analyze dates, identify patterns, compare days/categories, etc."""
+Provide a helpful, specific response using the transaction data above. You can analyze dates, identify patterns, compare days/categories, track balance changes, etc."""
 
                     if client:
                         try:
