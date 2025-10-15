@@ -154,7 +154,11 @@ If balance column doesn't exist, set it to null."""
             temperature=0.1,
             response_format={"type": "json_object"})
         
-        mapping = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+        if not content:
+            return None, "AI response was empty"
+        
+        mapping = json.loads(content)
         
         # Validate required fields
         if not all(key in mapping for key in ['date', 'payee', 'amount']):
@@ -174,6 +178,94 @@ If balance column doesn't exist, set it to null."""
         
     except Exception as e:
         return None, f"Error parsing CSV: {str(e)}"
+
+
+# Project management functions
+def save_project(project_name, transactions_df):
+    """Save categorized transactions to a project file"""
+    try:
+        # Create projects directory if it doesn't exist
+        os.makedirs('projects', exist_ok=True)
+        
+        # Sanitize project name for filename
+        safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"projects/{safe_name}.json"
+        
+        # Convert dataframe to records
+        data = {
+            'project_name': project_name,
+            'transactions': transactions_df.to_dict('records'),
+            'created_at': pd.Timestamp.now().isoformat(),
+            'total_transactions': len(transactions_df)
+        }
+        
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        return True, filename
+    except Exception as e:
+        return False, str(e)
+
+
+def load_project(project_name):
+    """Load project from file"""
+    try:
+        safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"projects/{safe_name}.json"
+        
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        
+        df = pd.DataFrame(data['transactions'])
+        return df, None
+    except Exception as e:
+        return None, f"Error loading project: {str(e)}"
+
+
+def list_projects():
+    """List all available projects"""
+    try:
+        if not os.path.exists('projects'):
+            return []
+        
+        projects = []
+        for filename in os.listdir('projects'):
+            if filename.endswith('.json'):
+                with open(f'projects/{filename}', 'r') as f:
+                    data = json.load(f)
+                    projects.append({
+                        'name': data['project_name'],
+                        'transactions': data.get('total_transactions', 0),
+                        'created_at': data.get('created_at', 'Unknown')
+                    })
+        return projects
+    except Exception as e:
+        st.error(f"Error listing projects: {str(e)}")
+        return []
+
+
+def append_to_project(project_name, new_transactions_df):
+    """Append new transactions to an existing project"""
+    try:
+        # Load existing project
+        existing_df, error = load_project(project_name)
+        if error or existing_df is None:
+            return None, error or "Failed to load project"
+        
+        # Combine transactions
+        combined_df = pd.concat([existing_df, new_transactions_df], ignore_index=True)
+        
+        # Remove duplicates based on date, payee, and amount
+        combined_df = combined_df.drop_duplicates(subset=['date', 'payee', 'amount'], keep='first')
+        
+        # Save back to project
+        success, result = save_project(project_name, combined_df)
+        if success:
+            return combined_df, None
+        else:
+            return None, result
+    except Exception as e:
+        return None, f"Error appending to project: {str(e)}"
 
 
 # AI categorization function (categorization only - no summary)
@@ -388,6 +480,10 @@ if 'chat_messages' not in st.session_state:
     st.session_state.chat_messages = []
 if 'category_colors' not in st.session_state:
     st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+if 'current_project' not in st.session_state:
+    st.session_state.current_project = None
+if 'projects_list' not in st.session_state:
+    st.session_state.projects_list = list_projects()
 
 # Sidebar
 with st.sidebar:
@@ -641,6 +737,66 @@ if st.session_state.current_page == "summarize":
                         st.markdown(st.session_state.summary)
                     else:
                         st.info("Analysis insights will appear here")
+            
+            st.divider()
+            
+            # Save/Append Project Section
+            st.subheader("💾 Save Your Analysis")
+            
+            col_save1, col_save2 = st.columns([2, 1])
+            
+            with col_save1:
+                # Check if there are existing projects
+                existing_projects = [p['name'] for p in st.session_state.projects_list]
+                
+                # Project save mode selection
+                save_mode = st.radio(
+                    "Choose action:",
+                    ["Save as new project", "Append to existing project"] if existing_projects else ["Save as new project"],
+                    horizontal=True
+                )
+                
+                if save_mode == "Save as new project":
+                    project_name = st.text_input(
+                        "Project name",
+                        placeholder="e.g., October 2024",
+                        key="new_project_name"
+                    )
+                    
+                    if st.button("💾 Save Project", type="primary"):
+                        if project_name and project_name.strip():
+                            success, result = save_project(project_name.strip(), edited_df)
+                            if success:
+                                st.success(f"✅ Project '{project_name}' saved successfully!")
+                                st.session_state.current_project = project_name.strip()
+                                st.session_state.projects_list = list_projects()
+                            else:
+                                st.error(f"❌ Error saving project: {result}")
+                        else:
+                            st.error("❌ Please enter a project name")
+                else:
+                    # Append to existing project
+                    selected_project = st.selectbox(
+                        "Select project to append to",
+                        existing_projects,
+                        key="append_project_select"
+                    )
+                    
+                    if st.button("➕ Append to Project", type="primary"):
+                        combined_df, error = append_to_project(selected_project, edited_df)
+                        if error:
+                            st.error(f"❌ {error}")
+                        else:
+                            st.success(f"✅ Added {len(edited_df)} transactions to '{selected_project}'!")
+                            st.session_state.transactions = combined_df
+                            st.session_state.current_project = selected_project
+                            st.session_state.projects_list = list_projects()
+            
+            with col_save2:
+                if st.session_state.current_project:
+                    st.info(f"📁 Current project:\n**{st.session_state.current_project}**")
+                else:
+                    st.info("💡 Save your analysis to create a project")
 
         # Raw data expander
         with st.expander("📋 View Raw Data"):
@@ -648,11 +804,44 @@ if st.session_state.current_page == "summarize":
 
 # PAGE 2: ANALYZE & UNDERSTAND
 elif st.session_state.current_page == "analyze":
-    st.title("Analyze & Understand")
+    # Project selector at top
+    col_title, col_project = st.columns([2, 1])
+    
+    with col_title:
+        st.title("Analyze & Understand")
+    
+    with col_project:
+        # Get list of saved projects
+        saved_projects = [p['name'] for p in st.session_state.projects_list]
+        
+        if saved_projects:
+            # Add option to use current session data
+            project_options = ["Current Session"] + saved_projects
+            
+            selected_option = st.selectbox(
+                "📁 Select Project",
+                project_options,
+                index=0 if not st.session_state.current_project else (
+                    project_options.index(st.session_state.current_project) 
+                    if st.session_state.current_project in project_options else 0
+                ),
+                key="analyze_project_selector"
+            )
+            
+            # Load selected project if different from current
+            if selected_option != "Current Session" and selected_option != st.session_state.current_project:
+                loaded_df, error = load_project(selected_option)
+                if error:
+                    st.error(f"❌ {error}")
+                else:
+                    st.session_state.transactions = loaded_df
+                    st.session_state.current_project = selected_option
+                    st.session_state.categorized = True
+                    st.rerun()
 
     if st.session_state.transactions is None or not st.session_state.categorized:
         st.warning(
-            "⚠️ Please upload and categorize transactions first on the Summarize page."
+            "⚠️ Please upload and categorize transactions first on the Summarize page, or load a saved project above."
         )
     else:
         df = st.session_state.transactions
