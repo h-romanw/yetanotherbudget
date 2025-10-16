@@ -202,15 +202,15 @@
     },
     "yearly": {
       "2025": {
-        "Groceries": 300.0,
-        "Dining & Takeout": 200.0,
-        "Bills & Utilities": 1000.0,
-        "Transport": 500.0,
-        "Shopping": 600.0,
-        "Entertainment": 400.0,
-        "Health & Fitness": 300.0,
+        "Groceries": 994.2,
+        "Dining & Takeout": 606.6,
+        "Bills & Utilities": 11466.84,
+        "Transport": 520.8,
+        "Shopping": 1287.96,
+        "Entertainment": 506.16,
+        "Health & Fitness": 1620.0,
         "Travel": 0.0,
-        "Other": 700.0
+        "Other": 3120.0
       }
     },
     "alltime": {}
@@ -231,6 +231,26 @@
     {
       "role": "assistant",
       "content": "\u2705 I've updated your targets for October 2025:\n\nGroceries: \u00a382.85, Dining & Takeout: \u00a350.55, Bills & Utilities: \u00a3955.57, Transport: \u00a343.40, Shopping: \u00a3107.34, Entertainment: \u00a342.18, Health & Fitness: \u00a3135.00, Other: \u00a3260.00\n\nYour new targets are now in effect!"
+    },
+    {
+      "role": "user",
+      "content": "based on these numbers, what should a yearly budget look like?"
+    },
+    {
+      "role": "assistant",
+      "content": "Based on your spending data, I can help propose a yearly budget that aligns with your actual spending in each category. Here\u2019s a breakdown of your spending and suggested targets:\n\n1. **Bills & Utilities**: You spent \u00a3955.57. You might want to keep this target similar, perhaps around \u00a31000.\n2. **Dining & Takeout**: You spent \u00a350.55, which suggests a target of about \u00a3600 annually would be more appropriate.\n3. **Entertainment**: You spent \u00a342.18; a target of around \u00a3500 annually could be reasonable.\n4. **Groceries**: You spent \u00a382.85, suggesting a target of about \u00a31000 annually.\n5. **Health & Fitness**: You spent \u00a3135.00, indicating a target around \u00a31620 annually would be beneficial.\n6. **Other**: You spent \u00a3260.00, which suggests a target of around \u00a33120 annually.\n7. **Shopping**: You spent \u00a3107.34; a target around \u00a31288 annually could work well.\n8. **Transport**: You spent \u00a343.40; a target of about \u00a3520 annually seems appropriate.\n\nHere\u2019s a proposed yearly budget based on your actual spending:\n\n- Groceries: \u00a31000\n- Dining & Takeout: \u00a3600\n- Bills & Utilities: \u00a31000\n- Transport: \u00a3520\n- Shopping: \u00a31288\n- Entertainment: \u00a3500\n- Health & Fitness: \u00a31620\n- Other: \u00a33120\n\nWould you like me to set these proposed targets for you?"
+    },
+    {
+      "role": "user",
+      "content": "This makes no sense"
+    },
+    {
+      "role": "assistant",
+      "content": "It looks like there might be a discrepancy between your current spending and your targets. It's essential to ensure that your targets align with your actual spending habits to help you manage your finances effectively.\n\nLet's take a look at your current spending in each category compared to your targets:\n\n- **Bills & Utilities**: Spent \u00a3955.57, Target \u00a31000.00\n- **Dining & Takeout**: Spent \u00a350.55, Target \u00a3200.00\n- **Entertainment**: Spent \u00a342.18, Target \u00a3400.00\n- **Groceries**: Spent \u00a382.85, Target \u00a3300.00\n- **Health & Fitness**: Spent \u00a3135.00, Target \u00a3300.00\n- **Other**: Spent \u00a3260.00, Target \u00a3700.00\n- **Shopping**: Spent \u00a3107.34, Target \u00a3600.00\n- **Transport**: Spent \u00a343.40, Target \u00a3500.00\n\nIt seems that some of your spending is significantly lower than your targets, while you're close to your target for Bills & Utilities. \n\nIf you'd like, we can adjust your targets based on your actual spending to make them more realistic. Would you like to set your targets based on your current spending, or do you want to propose new targets for specific categories?"
+    },
+    {
+      "role": "user",
+      "content": "The data is for one month, but the yearly targets you are giving do not reflect 12 months at that spending level"
     }
   ]
 }
