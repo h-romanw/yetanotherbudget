@@ -313,6 +313,21 @@ def list_projects():
         return []
 
 
+def delete_project(project_name):
+    """Delete a project file"""
+    try:
+        safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"projects/{safe_name}.json"
+        
+        if os.path.exists(filename):
+            os.remove(filename)
+            return True, None
+        else:
+            return False, "Project file not found"
+    except Exception as e:
+        return False, f"Error deleting project: {str(e)}"
+
+
 def append_to_project(project_name, new_transactions_df):
     """Append new transactions to an existing project"""
     try:
@@ -661,7 +676,7 @@ if st.session_state.current_page == "summarize":
     existing_projects = [p['name'] for p in st.session_state.projects_list]
     
     if existing_projects:
-        col_proj1, col_proj2 = st.columns([3, 1])
+        col_proj1, col_proj2, col_proj3 = st.columns([3, 1, 1])
         with col_proj1:
             selected_project = st.selectbox(
                 "Load existing project or start new",
@@ -686,6 +701,24 @@ if st.session_state.current_page == "summarize":
                         st.session_state.analyzed = False
                         st.success(f"✅ Loaded project '{selected_project}'")
                         st.rerun()
+        
+        with col_proj3:
+            if selected_project != "-- Start New --":
+                if st.button("🗑️ Delete", type="secondary", use_container_width=True):
+                    success, error = delete_project(selected_project)
+                    if success:
+                        st.success(f"✅ Deleted project '{selected_project}'")
+                        # Clear current project if it was deleted
+                        if st.session_state.current_project == selected_project:
+                            st.session_state.current_project = None
+                            st.session_state.transactions = None
+                            st.session_state.categorized = False
+                            st.session_state.analyzed = False
+                        # Refresh projects list
+                        st.session_state.projects_list = list_projects()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {error}")
     else:
         st.info("💡 No saved projects yet. Upload data below to create your first project.")
     
