@@ -1597,6 +1597,11 @@ Provide helpful financial coaching. If the user wants to set or modify targets, 
                                 # Update each target
                                 for category, amount in function_args['targets'].items():
                                     st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                    
+                                    # Clear the widget state so it updates with new value
+                                    widget_key = f"target_{category}_{period_key}"
+                                    if widget_key in st.session_state:
+                                        del st.session_state[widget_key]
                                 
                                 # Create confirmation message
                                 updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in function_args['targets'].items()])
