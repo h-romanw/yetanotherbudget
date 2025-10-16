@@ -5,6 +5,8 @@ import plotly.express as px
 from openai import OpenAI
 import json
 import os
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 st.set_page_config(
     page_title="Yet Another Budget",
@@ -545,6 +547,18 @@ if 'current_project' not in st.session_state:
     st.session_state.current_project = None
 if 'projects_list' not in st.session_state:
     st.session_state.projects_list = list_projects()
+if 'targets' not in st.session_state:
+    st.session_state.targets = {
+        'monthly': {},  # e.g., {'July 2025': {'Groceries': 300, 'Transport': 100}}
+        'yearly': {},   # e.g., {'2025': {'Groceries': 3600, 'Transport': 1200}}
+        'alltime': {}   # e.g., {'Groceries': 10000, 'Transport': 5000}
+    }
+if 'target_period_type' not in st.session_state:
+    st.session_state.target_period_type = 'monthly'  # 'monthly', 'yearly', or 'alltime'
+if 'current_target_period' not in st.session_state:
+    # Initialize with current month/year
+    now = datetime.now()
+    st.session_state.current_target_period = f"{now.strftime('%B %Y')}"  # e.g., "January 2025"
 
 # Sidebar
 with st.sidebar:
@@ -569,7 +583,13 @@ with st.sidebar:
         st.session_state.current_page = "analyze"
         st.rerun()
 
-    st.button("🎯 Set Targets (WIP)", disabled=True, use_container_width=True)
+    if st.button("🎯 Set Targets",
+                 type="primary" if st.session_state.current_page == "targets"
+                 else "secondary",
+                 use_container_width=True,
+                 disabled=not st.session_state.categorized):
+        st.session_state.current_page = "targets"
+        st.rerun()
 
     st.divider()
 
@@ -1295,3 +1315,218 @@ Provide a helpful, specific response using the transaction data above. You can a
                             st.error(f"Error generating response: {str(e)}")
                     else:
                         st.error("OpenAI API key not configured")
+
+# PAGE 3: SET TARGETS
+elif st.session_state.current_page == "targets":
+    # Helper functions for period navigation
+    def get_next_period(current_period, period_type):
+        if period_type == 'monthly':
+            # Parse "January 2025" format
+            date_obj = datetime.strptime(current_period, '%B %Y')
+            next_date = date_obj + relativedelta(months=1)
+            return next_date.strftime('%B %Y')
+        elif period_type == 'yearly':
+            # Parse "2025" format
+            year = int(current_period)
+            return str(year + 1)
+        else:  # alltime
+            return current_period
+    
+    def get_prev_period(current_period, period_type):
+        if period_type == 'monthly':
+            date_obj = datetime.strptime(current_period, '%B %Y')
+            prev_date = date_obj - relativedelta(months=1)
+            return prev_date.strftime('%B %Y')
+        elif period_type == 'yearly':
+            year = int(current_period)
+            return str(year - 1)
+        else:  # alltime
+            return current_period
+    
+    st.title("🎯 Set Spending Targets")
+    
+    # Create main layout with chat
+    main_col, chat_col = st.columns([2, 1])
+    
+    with main_col:
+        # Period type selector
+        st.subheader("Target Period")
+        
+        period_type = st.radio(
+            "How often do you want to track targets?",
+            ["Monthly", "Yearly", "All-Time"],
+            horizontal=True,
+            index=0 if st.session_state.target_period_type == 'monthly' else (1 if st.session_state.target_period_type == 'yearly' else 2)
+        )
+        
+        # Update period type if changed
+        new_period_type = period_type.lower().replace('-', '')
+        if new_period_type != st.session_state.target_period_type:
+            st.session_state.target_period_type = new_period_type
+            # Update current period based on new type
+            now = datetime.now()
+            if new_period_type == 'monthly':
+                st.session_state.current_target_period = now.strftime('%B %Y')
+            elif new_period_type == 'yearly':
+                st.session_state.current_target_period = str(now.year)
+            else:  # alltime
+                st.session_state.current_target_period = 'All Time'
+            st.rerun()
+        
+        # Period navigation (only for monthly/yearly)
+        if st.session_state.target_period_type != 'alltime':
+            col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
+            
+            with col_nav1:
+                if st.button("◀ Previous", use_container_width=True):
+                    st.session_state.current_target_period = get_prev_period(
+                        st.session_state.current_target_period, 
+                        st.session_state.target_period_type
+                    )
+                    st.rerun()
+            
+            with col_nav2:
+                st.markdown(f"<h3 style='text-align: center;'>{st.session_state.current_target_period}</h3>", 
+                           unsafe_allow_html=True)
+            
+            with col_nav3:
+                if st.button("Next ▶", use_container_width=True):
+                    st.session_state.current_target_period = get_next_period(
+                        st.session_state.current_target_period, 
+                        st.session_state.target_period_type
+                    )
+                    st.rerun()
+        else:
+            st.markdown(f"<h3 style='text-align: center;'>All-Time Targets</h3>", 
+                       unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # Get all categories
+        all_categories = get_all_categories()
+        
+        # Get current targets for this period
+        period_key = st.session_state.current_target_period
+        period_targets = st.session_state.targets[st.session_state.target_period_type].get(period_key, {})
+        
+        # Category targets section
+        st.subheader("Category Targets")
+        st.caption("Set spending limits for each category")
+        
+        # Create target inputs for each category
+        updated_targets = {}
+        
+        for category in all_categories:
+            col_cat, col_input = st.columns([2, 1])
+            
+            with col_cat:
+                # Get category color
+                color = get_category_color(category)
+                # Display category with colored badge
+                st.markdown(
+                    f'<div style="background-color: {color}; color: white; padding: 8px 16px; '
+                    f'border-radius: 20px; display: inline-block; margin: 4px 0;">'
+                    f'{category}</div>',
+                    unsafe_allow_html=True
+                )
+            
+            with col_input:
+                # Input field for target amount
+                current_value = period_targets.get(category, 0.0)
+                target_value = st.number_input(
+                    f"£",
+                    min_value=0.0,
+                    value=float(current_value),
+                    step=10.0,
+                    key=f"target_{category}_{period_key}",
+                    label_visibility="collapsed"
+                )
+                updated_targets[category] = target_value
+        
+        # Save button
+        if st.button("💾 Save Targets", type="primary", use_container_width=True):
+            # Update targets in session state
+            if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+            
+            st.session_state.targets[st.session_state.target_period_type][period_key] = updated_targets
+            st.success(f"✅ Targets saved for {period_key}!")
+    
+    with chat_col:
+        st.subheader("💬 AI Budget Coach")
+        
+        # Display chat messages
+        for msg in st.session_state.chat_messages:
+            with st.chat_message(msg['role']):
+                st.write(msg['content'])
+        
+        # Chat input
+        user_question = st.chat_input("Ask about your budget or request target changes...")
+        
+        if user_question:
+            # Add user message
+            st.session_state.chat_messages.append({
+                'role': 'user',
+                'content': user_question
+            })
+            
+            # TODO: Add OpenAI function calling for target updates
+            # For now, just provide context about targets
+            
+            if st.session_state.transactions is not None and st.session_state.categorized:
+                df = st.session_state.transactions
+                total = df['amount'].sum()
+                category_summary = df.groupby('category')['amount'].sum().to_dict()
+                
+                # Build context with targets
+                targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
+                current_targets = st.session_state.targets[st.session_state.target_period_type].get(
+                    st.session_state.current_target_period, {}
+                )
+                
+                if current_targets:
+                    for cat, target in current_targets.items():
+                        actual = category_summary.get(cat, 0)
+                        targets_context += f"- {cat}: £{target:.2f} target, £{actual:.2f} spent\n"
+                else:
+                    targets_context += "No targets set for this period yet.\n"
+                
+                context = f"""User's spending data:
+
+SUMMARY:
+- Total spent: £{total:.2f}
+- Number of transactions: {len(df)}
+- Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
+{targets_context}
+
+User question: {user_question}
+
+Provide helpful financial coaching. If the user wants to set or modify targets, acknowledge their request and explain what they should do (for now, targets can only be set manually)."""
+                
+                if client:
+                    try:
+                        response = client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=[{
+                                "role": "system",
+                                "content": "You are a helpful financial coaching assistant focused on budgeting and spending targets."
+                            }, {
+                                "role": "user",
+                                "content": context
+                            }],
+                            temperature=0.7,
+                            max_tokens=1000
+                        )
+                        
+                        ai_response = response.choices[0].message.content
+                        
+                        st.session_state.chat_messages.append({
+                            'role': 'assistant',
+                            'content': ai_response
+                        })
+                        
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
+                else:
+                    st.error("OpenAI API key not configured")
