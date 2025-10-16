@@ -1472,6 +1472,12 @@ elif st.session_state.current_page == "targets":
                     for key in keys_to_delete:
                         del st.session_state[key]
                     
+                    # Clear chat input states to prevent rendering issues
+                    if 'targets_chat_input' in st.session_state:
+                        del st.session_state['targets_chat_input']
+                    if 'chat_input' in st.session_state:
+                        del st.session_state['chat_input']
+                    
                     st.rerun()
             elif selected_option == "Current Session" and st.session_state.current_project != "Current Session":
                 # Switching to Current Session - reset to clean state
@@ -1487,6 +1493,12 @@ elif st.session_state.current_page == "targets":
                 keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
                 for key in keys_to_delete:
                     del st.session_state[key]
+                
+                # Clear chat input states to prevent rendering issues
+                if 'targets_chat_input' in st.session_state:
+                    del st.session_state['targets_chat_input']
+                if 'chat_input' in st.session_state:
+                    del st.session_state['chat_input']
                 
                 st.rerun()
     
