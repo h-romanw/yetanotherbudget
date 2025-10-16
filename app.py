@@ -245,7 +245,7 @@ If balance column doesn't exist, set it to null."""
 
 # Project management functions
 def save_project(project_name, transactions_df):
-    """Save categorized transactions to a project file"""
+    """Save categorized transactions and targets to a project file"""
     try:
         # Create projects directory if it doesn't exist
         os.makedirs('projects', exist_ok=True)
@@ -259,7 +259,8 @@ def save_project(project_name, transactions_df):
             'project_name': project_name,
             'transactions': transactions_df.to_dict('records'),
             'created_at': pd.Timestamp.now().isoformat(),
-            'total_transactions': len(transactions_df)
+            'total_transactions': len(transactions_df),
+            'targets': st.session_state.targets  # Save targets
         }
         
         with open(filename, 'w') as f:
@@ -271,7 +272,7 @@ def save_project(project_name, transactions_df):
 
 
 def load_project(project_name):
-    """Load project from file"""
+    """Load project from file including targets"""
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
@@ -280,6 +281,11 @@ def load_project(project_name):
             data = json.load(f)
         
         df = pd.DataFrame(data['transactions'])
+        
+        # Load targets if they exist
+        if 'targets' in data:
+            st.session_state.targets = data['targets']
+        
         return df, None
     except Exception as e:
         return None, f"Error loading project: {str(e)}"
