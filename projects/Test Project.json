@@ -188,7 +188,19 @@
   "total_transactions": 26,
   "targets": {
     "monthly": {},
-    "yearly": {},
+    "yearly": {
+      "2025": {
+        "Groceries": 300.0,
+        "Dining & Takeout": 200.0,
+        "Bills & Utilities": 1000.0,
+        "Transport": 500.0,
+        "Shopping": 600.0,
+        "Entertainment": 400.0,
+        "Health & Fitness": 300.0,
+        "Travel": 0.0,
+        "Other": 700.0
+      }
+    },
     "alltime": {}
   }
 }
