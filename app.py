@@ -1465,6 +1465,51 @@ Provide a helpful, specific response using the transaction data above. You can a
 
 # PAGE 3: SET TARGETS
 elif st.session_state.current_page == "targets":
+    # Reload current project data if one is selected
+    if st.session_state.current_project and st.session_state.current_project != "Current Session":
+        loaded_df, error = load_project(st.session_state.current_project)
+        if not error and loaded_df is not None:
+            # Only update if data has changed (avoid unnecessary reruns)
+            if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
+                st.session_state.transactions = loaded_df
+                st.session_state.categorized = True
+    
+    # Project selector at top
+    col_title, col_project = st.columns([2, 1])
+    
+    with col_title:
+        st.title("🎯 Set Spending Targets")
+    
+    with col_project:
+        # Refresh projects list
+        st.session_state.projects_list = list_projects()
+        saved_projects = [p['name'] for p in st.session_state.projects_list]
+        
+        if saved_projects:
+            # Add option to use current session data
+            project_options = ["Current Session"] + saved_projects
+            
+            selected_option = st.selectbox(
+                "📁 Select Project",
+                project_options,
+                index=0 if not st.session_state.current_project else (
+                    project_options.index(st.session_state.current_project) 
+                    if st.session_state.current_project in project_options else 0
+                ),
+                key="targets_project_selector"
+            )
+            
+            # Load selected project if different from current
+            if selected_option != "Current Session" and selected_option != st.session_state.current_project:
+                loaded_df, error = load_project(selected_option)
+                if error:
+                    st.error(f"❌ {error}")
+                else:
+                    st.session_state.transactions = loaded_df
+                    st.session_state.current_project = selected_option
+                    st.session_state.categorized = True
+                    st.rerun()
+    
     # Helper functions for period navigation
     def get_next_period(current_period, period_type):
         if period_type == 'monthly':
@@ -1489,8 +1534,6 @@ elif st.session_state.current_page == "targets":
             return str(year - 1)
         else:  # alltime
             return current_period
-    
-    st.title("🎯 Set Spending Targets")
     
     # Create main layout with chat
     main_col, chat_col = st.columns([2, 1])
