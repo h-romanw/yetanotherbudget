@@ -1593,20 +1593,31 @@ Always call the function when setting/updating targets - don't just describe wha
                         # Check if AI wants to call a function
                         if response_message.function_call:
                             function_name = response_message.function_call.name
-                            function_args = json.loads(response_message.function_call.arguments)
                             
-                            if function_name == "update_targets":
-                                # Validate function arguments
-                                if 'targets' not in function_args:
-                                    ai_response = "❌ Error: Could not update targets. Invalid format returned by AI."
-                                else:
+                            try:
+                                function_args = json.loads(response_message.function_call.arguments)
+                            except json.JSONDecodeError as e:
+                                ai_response = f"❌ Error: Could not parse AI response. Please try rephrasing your request."
+                                function_args = None
+                            
+                            if function_name == "update_targets" and function_args:
+                                # Validate and extract targets
+                                targets_to_update = None
+                                
+                                if 'targets' in function_args and isinstance(function_args['targets'], dict):
+                                    targets_to_update = function_args['targets']
+                                elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
+                                    # Sometimes AI returns the dict directly without nesting
+                                    targets_to_update = function_args
+                                
+                                if targets_to_update:
                                     # Update the targets
                                     period_key = st.session_state.current_target_period
                                     if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                                         st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                     
                                     # Update each target
-                                    for category, amount in function_args['targets'].items():
+                                    for category, amount in targets_to_update.items():
                                         st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
                                         
                                         # Clear the widget state so it updates with new value
@@ -1615,8 +1626,10 @@ Always call the function when setting/updating targets - don't just describe wha
                                             del st.session_state[widget_key]
                                     
                                     # Create confirmation message
-                                    updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in function_args['targets'].items()])
+                                    updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
                                     ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                                else:
+                                    ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
                         else:
                             ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
                         
