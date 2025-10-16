@@ -187,19 +187,7 @@
   "created_at": "2025-10-16T21:31:50.261685",
   "total_transactions": 26,
   "targets": {
-    "monthly": {
-      "October 2025": {
-        "Groceries": 10.0,
-        "Dining & Takeout": 0.0,
-        "Bills & Utilities": 0.0,
-        "Transport": 0.0,
-        "Shopping": 0.0,
-        "Entertainment": 0.0,
-        "Health & Fitness": 0.0,
-        "Travel": 0.0,
-        "Other": 0.0
-      }
-    },
+    "monthly": {},
     "yearly": {
       "2025": {
         "Groceries": 300.0,
@@ -214,6 +202,5 @@
       }
     },
     "alltime": {}
-  },
-  "chat_messages": []
+  }
 }

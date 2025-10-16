@@ -254,12 +254,10 @@ def save_project(project_name, transactions_df):
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
         
-        # Convert dataframe to records (handle empty dataframes)
-        transactions_list = transactions_df.to_dict('records') if not transactions_df.empty else []
-        
+        # Convert dataframe to records
         data = {
             'project_name': project_name,
-            'transactions': transactions_list,
+            'transactions': transactions_df.to_dict('records'),
             'created_at': pd.Timestamp.now().isoformat(),
             'total_transactions': len(transactions_df),
             'targets': st.session_state.targets,
@@ -283,13 +281,7 @@ def load_project(project_name):
         with open(filename, 'r') as f:
             data = json.load(f)
         
-        # Handle empty transactions list
-        transactions = data.get('transactions', [])
-        if transactions:
-            df = pd.DataFrame(transactions)
-        else:
-            # Create empty dataframe with correct columns
-            df = pd.DataFrame(columns=['date', 'payee', 'amount', 'category'])
+        df = pd.DataFrame(data['transactions'])
         
         # Reset to clean state first to ensure project isolation
         st.session_state.targets = {
@@ -743,37 +735,6 @@ if st.session_state.current_page == "summarize":
     st.session_state.projects_list = list_projects()
     existing_projects = [p['name'] for p in st.session_state.projects_list]
     
-    # Create New Project section
-    with st.expander("➕ Create New Project", expanded=not existing_projects):
-        new_proj_name = st.text_input(
-            "Project name",
-            placeholder="e.g., January 2025 Budget",
-            key="create_new_project_name"
-        )
-        
-        if st.button("✨ Create Empty Project", type="primary", use_container_width=True):
-            if new_proj_name and new_proj_name.strip():
-                # Check if project already exists
-                if new_proj_name.strip() in existing_projects:
-                    st.error(f"❌ Project '{new_proj_name.strip()}' already exists")
-                else:
-                    # Create empty project with no transactions
-                    empty_df = pd.DataFrame(columns=['date', 'payee', 'amount', 'category'])
-                    success, result = save_project(new_proj_name.strip(), empty_df)
-                    if success:
-                        st.success(f"✅ Created new project '{new_proj_name.strip()}'")
-                        st.session_state.current_project = new_proj_name.strip()
-                        st.session_state.transactions = empty_df
-                        st.session_state.categorized = True
-                        st.session_state.projects_list = list_projects()
-                        st.rerun()
-                    else:
-                        st.error(f"❌ Error creating project: {result}")
-            else:
-                st.error("❌ Please enter a project name")
-    
-    st.divider()
-    
     if existing_projects:
         col_proj1, col_proj2 = st.columns([3, 1])
         with col_proj1:
@@ -873,12 +834,9 @@ if st.session_state.current_page == "summarize":
                     st.session_state.transactions = df
                     st.rerun()
     
-    # Show helpful info if no data loaded yet or empty project
-    if st.session_state.transactions is None or (st.session_state.transactions is not None and st.session_state.transactions.empty):
-        if st.session_state.current_project:
-            st.info(f"📁 Project '{st.session_state.current_project}' is ready. Upload data below or go to Set Targets to create your budget.")
-        else:
-            st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
+    # Show helpful info if no data loaded yet
+    if st.session_state.transactions is None:
+        st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
 
         # Sample data format
         with st.expander("💡 Supported Formats"):
@@ -900,8 +858,8 @@ if st.session_state.current_page == "summarize":
             })
             st.dataframe(sample_df, width='stretch')
     
-    # Display loaded data section (only if transactions exist)
-    if st.session_state.transactions is not None and not st.session_state.transactions.empty:
+    # Display loaded data section
+    if st.session_state.transactions is not None:
         # Display loaded data
         df = st.session_state.transactions
 
@@ -1465,51 +1423,6 @@ Provide a helpful, specific response using the transaction data above. You can a
 
 # PAGE 3: SET TARGETS
 elif st.session_state.current_page == "targets":
-    # Reload current project data if one is selected
-    if st.session_state.current_project and st.session_state.current_project != "Current Session":
-        loaded_df, error = load_project(st.session_state.current_project)
-        if not error and loaded_df is not None:
-            # Only update if data has changed (avoid unnecessary reruns)
-            if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
-                st.session_state.transactions = loaded_df
-                st.session_state.categorized = True
-    
-    # Project selector at top
-    col_title, col_project = st.columns([2, 1])
-    
-    with col_title:
-        st.title("🎯 Set Spending Targets")
-    
-    with col_project:
-        # Refresh projects list
-        st.session_state.projects_list = list_projects()
-        saved_projects = [p['name'] for p in st.session_state.projects_list]
-        
-        if saved_projects:
-            # Add option to use current session data
-            project_options = ["Current Session"] + saved_projects
-            
-            selected_option = st.selectbox(
-                "📁 Select Project",
-                project_options,
-                index=0 if not st.session_state.current_project else (
-                    project_options.index(st.session_state.current_project) 
-                    if st.session_state.current_project in project_options else 0
-                ),
-                key="targets_project_selector"
-            )
-            
-            # Load selected project if different from current
-            if selected_option != "Current Session" and selected_option != st.session_state.current_project:
-                loaded_df, error = load_project(selected_option)
-                if error:
-                    st.error(f"❌ {error}")
-                else:
-                    st.session_state.transactions = loaded_df
-                    st.session_state.current_project = selected_option
-                    st.session_state.categorized = True
-                    st.rerun()
-    
     # Helper functions for period navigation
     def get_next_period(current_period, period_type):
         if period_type == 'monthly':
@@ -1534,6 +1447,8 @@ elif st.session_state.current_page == "targets":
             return str(year - 1)
         else:  # alltime
             return current_period
+    
+    st.title("🎯 Set Spending Targets")
     
     # Create main layout with chat
     main_col, chat_col = st.columns([2, 1])
