@@ -1570,7 +1570,14 @@ Provide helpful financial coaching. If the user wants to set or modify targets, 
                             model="gpt-4o-mini",
                             messages=[{
                                 "role": "system",
-                                "content": "You are a helpful financial coaching assistant focused on budgeting and spending targets. You can update user's spending targets using the update_targets function."
+                                "content": """You are a helpful financial coaching assistant. When users ask you to set, update, or propose budgets/targets, you MUST use the update_targets function to make the changes. 
+
+Examples of when to use the function:
+- "Set my groceries to £300" -> Call update_targets with {"Groceries": 300}
+- "Propose a budget for all categories" -> Call update_targets with all categories
+- "Update my dining budget to £150" -> Call update_targets with {"Dining & Takeout": 150}
+
+Always call the function when setting/updating targets - don't just describe what should be done."""
                             }, {
                                 "role": "user",
                                 "content": context
@@ -1589,25 +1596,29 @@ Provide helpful financial coaching. If the user wants to set or modify targets, 
                             function_args = json.loads(response_message.function_call.arguments)
                             
                             if function_name == "update_targets":
-                                # Update the targets
-                                period_key = st.session_state.current_target_period
-                                if period_key not in st.session_state.targets[st.session_state.target_period_type]:
-                                    st.session_state.targets[st.session_state.target_period_type][period_key] = {}
-                                
-                                # Update each target
-                                for category, amount in function_args['targets'].items():
-                                    st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                # Validate function arguments
+                                if 'targets' not in function_args:
+                                    ai_response = "❌ Error: Could not update targets. Invalid format returned by AI."
+                                else:
+                                    # Update the targets
+                                    period_key = st.session_state.current_target_period
+                                    if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                        st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                     
-                                    # Clear the widget state so it updates with new value
-                                    widget_key = f"target_{category}_{period_key}"
-                                    if widget_key in st.session_state:
-                                        del st.session_state[widget_key]
-                                
-                                # Create confirmation message
-                                updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in function_args['targets'].items()])
-                                ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                                    # Update each target
+                                    for category, amount in function_args['targets'].items():
+                                        st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                        
+                                        # Clear the widget state so it updates with new value
+                                        widget_key = f"target_{category}_{period_key}"
+                                        if widget_key in st.session_state:
+                                            del st.session_state[widget_key]
+                                    
+                                    # Create confirmation message
+                                    updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in function_args['targets'].items()])
+                                    ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
                         else:
-                            ai_response = response_message.content
+                            ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
                         
                         st.session_state.chat_messages.append({
                             'role': 'assistant',
