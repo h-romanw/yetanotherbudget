@@ -1459,17 +1459,48 @@ elif st.session_state.current_page == "targets":
             st.success(f"✅ Targets saved for {period_key}!")
     
     with chat_col:
-        st.subheader("💬 AI Budget Coach")
-        
-        # Display chat messages
-        for msg in st.session_state.chat_messages:
-            with st.chat_message(msg['role']):
-                st.write(msg['content'])
-        
-        # Chat input
-        user_question = st.chat_input("Ask about your budget or request target changes...")
-        
-        if user_question:
+        # Create container for entire chat section
+        chat_container = st.container()
+
+        with chat_container:
+            # Chat header
+            st.markdown("""
+            <div style='background: white; padding: 20px 20px 10px 20px; border-radius: 10px 10px 0 0;'>
+                <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
+            </div>
+            """,
+                        unsafe_allow_html=True)
+
+            # Scrollable chat messages container with fixed height
+            chat_messages_container = st.container(height=450)
+
+            with chat_messages_container:
+                if st.session_state.chat_messages:
+                    for idx, msg in enumerate(st.session_state.chat_messages):
+                        if msg['role'] == 'user':
+                            with st.chat_message("user"):
+                                st.markdown(msg['content'])
+                        else:
+                            # AI message with collapsible expander
+                            with st.chat_message("assistant"):
+                                with st.expander(
+                                        "View response",
+                                        expanded=(idx == len(st.session_state.chat_messages) - 1)):
+                                    st.markdown(msg['content'])
+                else:
+                    st.info("Ask me about your spending or set budgets!")
+
+            # Chat input at bottom with white background
+            st.markdown("""
+            <div style='background: white; padding: 0 20px 20px 20px;'>
+            </div>
+            """,
+                        unsafe_allow_html=True)
+
+            user_question = st.chat_input(
+                placeholder="Ask about targets or request changes...", key="targets_chat_input")
+
+        if user_question and user_question.strip():
             # Add user message
             st.session_state.chat_messages.append({
                 'role': 'user',
