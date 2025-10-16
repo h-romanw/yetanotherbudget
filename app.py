@@ -617,11 +617,14 @@ with st.sidebar:
     # Import button at bottom
     if st.button("📤 Import New Data",
                  use_container_width=True,
-                 type="secondary"):
+                 type="secondary",
+                 help="Clear current data and start fresh"):
         st.session_state.transactions = None
         st.session_state.categorized = False
         st.session_state.analyzed = False
         st.session_state.summary = None
+        st.session_state.current_project = None
+        st.session_state.chat_messages = []
         st.rerun()
 
     st.divider()
@@ -727,61 +730,65 @@ if st.session_state.current_page == "summarize":
     
     st.divider()
 
-    # File uploader
-    if st.session_state.transactions is None:
-        uploaded_file = st.file_uploader(
-            "Upload your bank statement CSV" + (f" (will append to '{st.session_state.current_project}')" if st.session_state.current_project else ""),
-            type=['csv'],
-            help="Upload any CSV bank statement - AI will automatically identify the columns")
+    # File uploader - always visible
+    st.subheader("📤 Upload Data")
+    
+    uploaded_file = st.file_uploader(
+        "Upload your bank statement CSV" + (f" (will append to '{st.session_state.current_project}')" if st.session_state.current_project else ""),
+        type=['csv'],
+        help="Upload any CSV bank statement - AI will automatically identify the columns",
+        key="csv_uploader")
 
-        if uploaded_file is not None:
-            with st.spinner("🤖 Analyzing CSV format..."):
-                df, error = parse_csv_with_ai(uploaded_file)
-                
-                if error:
-                    st.error(f"❌ {error}")
-                elif df is not None:
-                    # If a project is loaded, append to it
-                    if st.session_state.current_project:
-                        combined_df, append_error = append_to_project(st.session_state.current_project, df)
-                        if append_error:
-                            st.error(f"❌ {append_error}")
-                        else:
-                            st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
-                                      (" (with balance tracking)" if 'balance' in df.columns else ""))
-                            st.session_state.transactions = combined_df
-                            st.session_state.categorized = True
-                            st.rerun()
+    if uploaded_file is not None:
+        with st.spinner("🤖 Analyzing CSV format..."):
+            df, error = parse_csv_with_ai(uploaded_file)
+            
+            if error:
+                st.error(f"❌ {error}")
+            elif df is not None:
+                # If a project is loaded, append to it
+                if st.session_state.current_project:
+                    combined_df, append_error = append_to_project(st.session_state.current_project, df)
+                    if append_error:
+                        st.error(f"❌ {append_error}")
                     else:
-                        st.success(f"✅ Successfully parsed {len(df)} transactions" + 
+                        st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
                                   (" (with balance tracking)" if 'balance' in df.columns else ""))
-                        st.session_state.transactions = df
+                        st.session_state.transactions = combined_df
+                        st.session_state.categorized = True
                         st.rerun()
-        else:
-            # Empty state
-            st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
+                else:
+                    st.success(f"✅ Successfully parsed {len(df)} transactions" + 
+                              (" (with balance tracking)" if 'balance' in df.columns else ""))
+                    st.session_state.transactions = df
+                    st.rerun()
+    
+    # Show helpful info if no data loaded yet
+    if st.session_state.transactions is None:
+        st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
 
-            # Sample data format
-            with st.expander("💡 Supported Formats"):
-                st.markdown("""
-                The AI can parse **any CSV format** that contains:
-                - **Date** (transaction date)
-                - **Payee/Description** (merchant name)
-                - **Amount** (transaction amount)
-                - **Balance** *(optional - account balance)*
-                
-                Column names don't matter - the AI will figure it out!
-                """)
-                
-                sample_df = pd.DataFrame({
-                    'date': ['12/10/2025', '11/10/2025'],
-                    'payee': ['TESCO STORES', 'RENT PAYMENT'],
-                    'amount': [35.64, 1776.50],
-                    'balance': [1500.36, 1536.00]
-                })
-                st.dataframe(sample_df, width='stretch')
-
-    else:
+        # Sample data format
+        with st.expander("💡 Supported Formats"):
+            st.markdown("""
+            The AI can parse **any CSV format** that contains:
+            - **Date** (transaction date)
+            - **Payee/Description** (merchant name)
+            - **Amount** (transaction amount)
+            - **Balance** *(optional - account balance)*
+            
+            Column names don't matter - the AI will figure it out!
+            """)
+            
+            sample_df = pd.DataFrame({
+                'date': ['12/10/2025', '11/10/2025'],
+                'payee': ['TESCO STORES', 'RENT PAYMENT'],
+                'amount': [35.64, 1776.50],
+                'balance': [1500.36, 1536.00]
+            })
+            st.dataframe(sample_df, width='stretch')
+    
+    # Display loaded data section
+    if st.session_state.transactions is not None:
         # Display loaded data
         df = st.session_state.transactions
 
