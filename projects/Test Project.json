@@ -189,7 +189,20 @@
   "targets": {
     "monthly": {
       "October 2025": {
-        "Groceries": 50.0,
+        "Groceries": 85.0,
+        "Dining & Takeout": 55.0,
+        "Bills & Utilities": 960.0,
+        "Transport": 45.0,
+        "Shopping": 110.0,
+        "Entertainment": 45.0,
+        "Health & Fitness": 140.0,
+        "Travel": 0.0,
+        "Other": 265.0
+      }
+    },
+    "yearly": {
+      "2025": {
+        "Groceries": 0.0,
         "Dining & Takeout": 0.0,
         "Bills & Utilities": 0.0,
         "Transport": 0.0,
@@ -200,20 +213,16 @@
         "Other": 0.0
       }
     },
-    "yearly": {
-      "2025": {
-        "Groceries": 300.0,
-        "Dining & Takeout": 200.0,
-        "Bills & Utilities": 1000.0,
-        "Transport": 500.0,
-        "Shopping": 600.0,
-        "Entertainment": 400.0,
-        "Health & Fitness": 300.0,
-        "Travel": 0.0,
-        "Other": 700.0
-      }
-    },
     "alltime": {}
   },
-  "chat_messages": []
+  "chat_messages": [
+    {
+      "role": "user",
+      "content": "based on my July 2025 spending, suggest a budget for Oct 2025"
+    },
+    {
+      "role": "assistant",
+      "content": "\u2705 I've updated your targets for October 2025:\n\nGroceries: \u00a385.00, Dining & Takeout: \u00a355.00, Bills & Utilities: \u00a3960.00, Transport: \u00a345.00, Shopping: \u00a3110.00, Entertainment: \u00a345.00, Health & Fitness: \u00a3140.00, Other: \u00a3265.00\n\nYour new targets are now in effect!"
+    }
+  ]
 }
