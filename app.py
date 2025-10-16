@@ -71,20 +71,20 @@ def assign_color_to_category(category):
     """Auto-assign a color to a new category"""
     if 'category_colors' not in st.session_state:
         st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
-
+    
     # If category already has a color, return it
     if category in st.session_state.category_colors:
         return st.session_state.category_colors[category]
-
+    
     # Find used colors
     used_colors = set(st.session_state.category_colors.values())
-
+    
     # Find first unused color from palette
     for color in COLOR_PALETTE:
         if color not in used_colors:
             st.session_state.category_colors[category] = color
             return color
-
+    
     # If all colors used, cycle back to start
     st.session_state.category_colors[category] = COLOR_PALETTE[len(st.session_state.category_colors) % len(COLOR_PALETTE)]
     return st.session_state.category_colors[category]
@@ -94,35 +94,35 @@ def get_category_color(category):
     """Get color for a category"""
     if 'category_colors' not in st.session_state:
         st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
-
+    
     # If category doesn't have a color, assign one
     if category not in st.session_state.category_colors:
         return assign_color_to_category(category)
-
+    
     return st.session_state.category_colors[category]
 
 
 # Smart CSV parser using AI to identify columns
 def parse_csv_with_ai(uploaded_file):
     """Use AI to intelligently parse any CSV format and extract required columns"""
-
+    
     if not client:
         return None, "OpenAI API key not configured"
-
+    
     try:
         # Read the CSV file
         df_raw = pd.read_csv(uploaded_file)
-
+        
         # Get column names and first 3 rows as sample
         columns = df_raw.columns.tolist()
         sample_rows = df_raw.head(3).to_dict('records')
-
+        
         # Create prompt for AI to identify columns
         sample_data = "\n".join([
             f"Row {i+1}: " + ", ".join([f"{col}={row[col]}" for col in columns])
             for i, row in enumerate(sample_rows)
         ])
-
+        
         prompt = f"""Analyze this CSV structure and identify which columns contain the following information:
 - Date: The transaction date
 - Payee: The merchant/payee name  
@@ -161,26 +161,26 @@ If balance column doesn't exist, set it to null."""
             }],
             temperature=0.1,
             response_format={"type": "json_object"})
-
+        
         content = response.choices[0].message.content
         if not content:
             return None, "AI response was empty"
-
+        
         mapping = json.loads(content)
-
+        
         # Validate required fields
         if not all(key in mapping for key in ['date', 'payee', 'amount']):
             return None, "AI couldn't identify required columns (date, payee, amount)"
-
+        
         # Build the standardized dataframe
         df_standard = pd.DataFrame()
-
+        
         # Parse dates with validation - try AI's suggestion first, then fall back
         date_format = mapping.get('date_format', 'day_first')
-
+        
         # Try parsing with different formats
         parsing_attempts = []
-
+        
         # Try AI's suggested format first
         if date_format == 'month_first':
             dates_suggested = pd.to_datetime(df_raw[mapping['date']], dayfirst=False, errors='coerce')
@@ -191,21 +191,21 @@ If balance column doesn't exist, set it to null."""
         else:
             dates_suggested = pd.to_datetime(df_raw[mapping['date']], dayfirst=True, errors='coerce')
             parsing_attempts.append(('day_first', dates_suggested))
-
+        
         # Always try alternative formats as fallback
         if date_format != 'day_first':
             parsing_attempts.append(('day_first', pd.to_datetime(df_raw[mapping['date']], dayfirst=True, errors='coerce')))
         if date_format != 'month_first':
             parsing_attempts.append(('month_first', pd.to_datetime(df_raw[mapping['date']], dayfirst=False, errors='coerce')))
-
+        
         # Sort by NaT count to find best parsing
         parsing_attempts.sort(key=lambda x: x[1].isna().sum())
-
+        
         # Check if we have a clear winner or ambiguous data
         if len(parsing_attempts) > 1:
             best_nat_count = parsing_attempts[0][1].isna().sum()
             second_best_nat_count = parsing_attempts[1][1].isna().sum()
-
+            
             # If NaT counts are equal, the data is ambiguous - prefer AI's suggestion
             if best_nat_count == second_best_nat_count:
                 # Find AI's suggested format in the attempts
@@ -221,24 +221,24 @@ If balance column doesn't exist, set it to null."""
                 best_format, best_dates = parsing_attempts[0]
         else:
             best_format, best_dates = parsing_attempts[0]
-
+        
         # Validate: if too many NaT values, return error
         nat_percentage = (best_dates.isna().sum() / len(df_raw)) * 100
         if nat_percentage > 20:  # If more than 20% of dates are invalid
             return None, f"Could not parse dates reliably. {nat_percentage:.1f}% of dates were invalid. Please check the date format in your CSV."
-
+        
         # Use the best parsing result
         df_standard['date'] = best_dates.dt.strftime('%d/%m/%Y')
-
+        
         df_standard['payee'] = df_raw[mapping['payee']]
         df_standard['amount'] = df_raw[mapping['amount']].abs()  # Ensure positive amounts
-
+        
         # Add balance if it exists
         if mapping.get('balance') and mapping['balance'] in df_raw.columns:
             df_standard['balance'] = df_raw[mapping['balance']]
-
+        
         return df_standard, None
-
+        
     except Exception as e:
         return None, f"Error parsing CSV: {str(e)}"
 
@@ -249,11 +249,11 @@ def save_project(project_name, transactions_df):
     try:
         # Create projects directory if it doesn't exist
         os.makedirs('projects', exist_ok=True)
-
+        
         # Sanitize project name for filename
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
-
+        
         # Convert dataframe to records
         data = {
             'project_name': project_name,
@@ -263,10 +263,10 @@ def save_project(project_name, transactions_df):
             'targets': st.session_state.targets,
             'chat_messages': st.session_state.get('chat_messages', [])
         }
-
+        
         with open(filename, 'w') as f:
             json.dump(data, f, indent=2)
-
+        
         return True, filename
     except Exception as e:
         return False, str(e)
@@ -277,12 +277,12 @@ def load_project(project_name):
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
-
+        
         with open(filename, 'r') as f:
             data = json.load(f)
-
+        
         df = pd.DataFrame(data['transactions'])
-
+        
         # Reset to clean state first to ensure project isolation
         st.session_state.targets = {
             'monthly': {},
@@ -290,15 +290,15 @@ def load_project(project_name):
             'alltime': {}
         }
         st.session_state.chat_messages = []
-
+        
         # Load project-specific targets if they exist
         if 'targets' in data:
             st.session_state.targets = data['targets']
-
+        
         # Load project-specific chat history if it exists
         if 'chat_messages' in data:
             st.session_state.chat_messages = data['chat_messages']
-
+        
         return df, None
     except Exception as e:
         return None, f"Error loading project: {str(e)}"
@@ -309,7 +309,7 @@ def list_projects():
     try:
         if not os.path.exists('projects'):
             return []
-
+        
         projects = []
         for filename in os.listdir('projects'):
             if filename.endswith('.json'):
@@ -331,7 +331,7 @@ def delete_project(project_name):
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
-
+        
         if os.path.exists(filename):
             os.remove(filename)
             return True, None
@@ -348,13 +348,13 @@ def append_to_project(project_name, new_transactions_df):
         existing_df, error = load_project(project_name)
         if error or existing_df is None:
             return None, error or "Failed to load project"
-
+        
         # Combine transactions
         combined_df = pd.concat([existing_df, new_transactions_df], ignore_index=True)
-
+        
         # Remove duplicates based on date, payee, and amount
         combined_df = combined_df.drop_duplicates(subset=['date', 'payee', 'amount'], keep='first')
-
+        
         # Save back to project
         success, result = save_project(project_name, combined_df)
         if success:
@@ -370,22 +370,22 @@ def save_targets_to_project(project_name):
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
-
+        
         # Read existing project data
         if not os.path.exists(filename):
             return False, "Project file not found"
-
+        
         with open(filename, 'r') as f:
             data = json.load(f)
-
+        
         # Update targets and chat history
         data['targets'] = st.session_state.targets
         data['chat_messages'] = st.session_state.get('chat_messages', [])
-
+        
         # Write back to file
         with open(filename, 'w') as f:
             json.dump(data, f, indent=2)
-
+        
         return True, None
     except Exception as e:
         return False, f"Error saving targets: {str(e)}"
@@ -397,13 +397,13 @@ def update_targets_and_save(period_type, period_key, category, amount):
         # Update the target in session state
         if period_key not in st.session_state.targets[period_type]:
             st.session_state.targets[period_type][period_key] = {}
-
+        
         st.session_state.targets[period_type][period_key][category] = amount
-
+        
         # Save to project file only if a real project (not "Current Session") is loaded
         if st.session_state.current_project and st.session_state.current_project != "Current Session":
             save_targets_to_project(st.session_state.current_project)
-
+        
         return True
     except Exception as e:
         st.error(f"Error updating targets: {str(e)}")
@@ -727,14 +727,14 @@ with st.sidebar:
 # PAGE 1: SUMMARIZE (Import & View)
 if st.session_state.current_page == "summarize":
     st.title("AI Spending Analyzer")
-
+    
     # Projects section - always visible
     st.subheader("📁 Projects")
-
+    
     # Refresh projects list
     st.session_state.projects_list = list_projects()
     existing_projects = [p['name'] for p in st.session_state.projects_list]
-
+    
     if existing_projects:
         col_proj1, col_proj2 = st.columns([3, 1])
         with col_proj1:
@@ -744,14 +744,14 @@ if st.session_state.current_page == "summarize":
                 default_index = options.index(st.session_state.current_project)
             else:
                 default_index = 0
-
+            
             selected_project = st.selectbox(
                 "Select project to load or start new",
                 options,
                 index=default_index,
                 key="project_selector_main"
             )
-
+            
             # Handle project selection change
             if selected_project == "-- Start New --":
                 # Clear current project if "Start New" is selected
@@ -774,7 +774,7 @@ if st.session_state.current_page == "summarize":
                     st.session_state.analyzed = False
                     st.session_state.summary = None
                     st.rerun()
-
+        
         with col_proj2:
             if selected_project != "-- Start New --":
                 if st.button("🗑️ Delete", type="secondary", use_container_width=True):
@@ -794,16 +794,16 @@ if st.session_state.current_page == "summarize":
                         st.error(f"❌ {error}")
     else:
         st.info("💡 No saved projects yet. Upload data below to create your first project.")
-
+    
     # Show current project status
     if st.session_state.current_project:
         st.success(f"📁 Current project: **{st.session_state.current_project}**")
-
+    
     st.divider()
 
     # File uploader - always visible
     st.subheader("📤 Upload Data")
-
+    
     uploaded_file = st.file_uploader(
         "Upload your bank statement CSV" + (f" (will append to '{st.session_state.current_project}')" if st.session_state.current_project else ""),
         type=['csv'],
@@ -813,7 +813,7 @@ if st.session_state.current_page == "summarize":
     if uploaded_file is not None:
         with st.spinner("🤖 Analyzing CSV format..."):
             df, error = parse_csv_with_ai(uploaded_file)
-
+            
             if error:
                 st.error(f"❌ {error}")
             elif df is not None:
@@ -833,7 +833,7 @@ if st.session_state.current_page == "summarize":
                               (" (with balance tracking)" if 'balance' in df.columns else ""))
                     st.session_state.transactions = df
                     st.rerun()
-
+    
     # Show helpful info if no data loaded yet
     if st.session_state.transactions is None:
         st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
@@ -846,10 +846,10 @@ if st.session_state.current_page == "summarize":
             - **Payee/Description** (merchant name)
             - **Amount** (transaction amount)
             - **Balance** *(optional - account balance)*
-
+            
             Column names don't matter - the AI will figure it out!
             """)
-
+            
             sample_df = pd.DataFrame({
                 'date': ['12/10/2025', '11/10/2025'],
                 'payee': ['TESCO STORES', 'RENT PAYMENT'],
@@ -857,7 +857,7 @@ if st.session_state.current_page == "summarize":
                 'balance': [1500.36, 1536.00]
             })
             st.dataframe(sample_df, width='stretch')
-
+    
     # Display loaded data section
     if st.session_state.transactions is not None:
         # Display loaded data
@@ -910,7 +910,7 @@ if st.session_state.current_page == "summarize":
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
                 st.session_state.summary = None
-
+            
             # Refresh categorization button
             if st.button("🔄 Refresh Categorization", help="Re-run AI categorization on all transactions"):
                 with st.spinner("Re-categorizing transactions..."):
@@ -988,12 +988,12 @@ if st.session_state.current_page == "summarize":
                         st.markdown(st.session_state.summary)
                     else:
                         st.info("Analysis insights will appear here")
-
+            
             st.divider()
-
+            
             # Save Project Section
             st.subheader("💾 Save Project")
-
+            
             # Show project name input only if no project is loaded (-- Start New -- selected)
             if not st.session_state.current_project:
                 project_name = st.text_input(
@@ -1001,7 +1001,7 @@ if st.session_state.current_page == "summarize":
                     placeholder="e.g., October 2024",
                     key="new_project_name"
                 )
-
+                
                 if st.button("💾 Save as New Project", type="primary", use_container_width=True):
                     if project_name and project_name.strip():
                         success, result = save_project(project_name.strip(), edited_df)
@@ -1016,7 +1016,7 @@ if st.session_state.current_page == "summarize":
             else:
                 # If project is loaded, save updates to it
                 st.info(f"📁 Saving to: **{st.session_state.current_project}**")
-
+                
                 if st.button("💾 Save Changes to Project", type="primary", use_container_width=True):
                     success, result = save_project(st.session_state.current_project, edited_df)
                     if success:
@@ -1039,22 +1039,22 @@ elif st.session_state.current_page == "analyze":
             if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
                 st.session_state.transactions = loaded_df
                 st.session_state.categorized = True
-
+    
     # Project selector at top
     col_title, col_project = st.columns([2, 1])
-
+    
     with col_title:
         st.title("Analyze & Understand")
-
+    
     with col_project:
         # Refresh projects list
         st.session_state.projects_list = list_projects()
         saved_projects = [p['name'] for p in st.session_state.projects_list]
-
+        
         if saved_projects:
             # Add option to use current session data
             project_options = ["Current Session"] + saved_projects
-
+            
             selected_option = st.selectbox(
                 "📁 Select Project",
                 project_options,
@@ -1064,7 +1064,7 @@ elif st.session_state.current_page == "analyze":
                 ),
                 key="analyze_project_selector"
             )
-
+            
             # Load selected project if different from current
             if selected_option != "Current Session" and selected_option != st.session_state.current_project:
                 loaded_df, error = load_project(selected_option)
@@ -1166,7 +1166,7 @@ elif st.session_state.current_page == "analyze":
 
             # Create line chart with matching colors from donut chart
             import plotly.graph_objects as go
-
+            
             fig_line = px.line(
                 timeline_data,
                 x='date',
@@ -1202,16 +1202,16 @@ elif st.session_state.current_page == "analyze":
             )
 
             st.plotly_chart(fig_line, use_container_width=True)
-
+            
             # Balance tracking chart (if balance column exists)
             if 'balance' in df.columns:
                 st.markdown("### Account Balance Over Time")
-
+                
                 # Prepare balance data
                 balance_data = df_chart[['date', 'balance']].copy()
                 balance_data = balance_data.sort_values('date')
                 balance_data = balance_data.drop_duplicates(subset=['date'], keep='last')
-
+                
                 # Create balance line chart
                 fig_balance = px.line(
                     balance_data,
@@ -1219,12 +1219,12 @@ elif st.session_state.current_page == "analyze":
                     y='balance',
                     markers=True
                 )
-
+                
                 fig_balance.update_traces(
                     line=dict(color='#007AFF', width=3),
                     marker=dict(size=8, color='#007AFF')
                 )
-
+                
                 fig_balance.update_layout(
                     height=250,
                     showlegend=False,
@@ -1243,7 +1243,7 @@ elif st.session_state.current_page == "analyze":
                     paper_bgcolor='white',
                     plot_bgcolor='white'
                 )
-
+                
                 st.plotly_chart(fig_balance, use_container_width=True)
 
             # Transaction table with color-coded categories
@@ -1355,7 +1355,7 @@ elif st.session_state.current_page == "analyze":
                             transactions_list.append(
                                 f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
                             )
-
+                    
                     # Add balance info if available
                     balance_info = ""
                     if 'balance' in df.columns and len(df_with_dates) > 0:
@@ -1423,61 +1423,6 @@ Provide a helpful, specific response using the transaction data above. You can a
 
 # PAGE 3: SET TARGETS
 elif st.session_state.current_page == "targets":
-    # Reload current project data if one is selected (ensures targets and transactions are synced)
-    if st.session_state.current_project and st.session_state.current_project != "Current Session":
-        loaded_df, error = load_project(st.session_state.current_project)
-        if not error and loaded_df is not None:
-            # Only update if data has changed (avoid unnecessary reruns)
-            if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
-                st.session_state.transactions = loaded_df
-                st.session_state.categorized = True
-
-    # Project selector at top
-    col_title, col_project = st.columns([2, 1])
-
-    with col_title:
-        st.title("🎯 Set Spending Targets")
-
-    with col_project:
-        # Refresh projects list
-        st.session_state.projects_list = list_projects()
-        saved_projects = [p['name'] for p in st.session_state.projects_list]
-
-        if saved_projects:
-            # Add option to use current session data
-            project_options = ["Current Session"] + saved_projects
-
-            selected_option = st.selectbox(
-                "📁 Select Project",
-                project_options,
-                index=0 if not st.session_state.current_project else (
-                    project_options.index(st.session_state.current_project) 
-                    if st.session_state.current_project in project_options else 0
-                ),
-                key="targets_project_selector"
-            )
-
-            # Load selected project if different from current
-            if selected_option != "Current Session" and selected_option != st.session_state.current_project:
-                loaded_df, error = load_project(selected_option)
-                if error:
-                    st.error(f"❌ {error}")
-                else:
-                    st.session_state.transactions = loaded_df
-                    st.session_state.current_project = selected_option
-                    st.session_state.categorized = True
-                    st.rerun()
-            elif selected_option == "Current Session" and st.session_state.current_project != "Current Session":
-                # Switching to Current Session - reset to clean state
-                st.session_state.current_project = "Current Session"
-                st.session_state.targets = {
-                    'monthly': {},
-                    'yearly': {},
-                    'alltime': {}
-                }
-                st.session_state.chat_messages = []
-                st.rerun()
-
     # Helper functions for period navigation
     def get_next_period(current_period, period_type):
         if period_type == 'monthly':
@@ -1491,7 +1436,7 @@ elif st.session_state.current_page == "targets":
             return str(year + 1)
         else:  # alltime
             return current_period
-
+    
     def get_prev_period(current_period, period_type):
         if period_type == 'monthly':
             date_obj = datetime.strptime(current_period, '%B %Y')
@@ -1502,21 +1447,23 @@ elif st.session_state.current_page == "targets":
             return str(year - 1)
         else:  # alltime
             return current_period
-
+    
+    st.title("🎯 Set Spending Targets")
+    
     # Create main layout with chat
     main_col, chat_col = st.columns([2, 1])
-
+    
     with main_col:
         # Period type selector
         st.subheader("Target Period")
-
+        
         period_type = st.radio(
             "How often do you want to track targets?",
             ["Monthly", "Yearly", "All-Time"],
             horizontal=True,
             index=0 if st.session_state.target_period_type == 'monthly' else (1 if st.session_state.target_period_type == 'yearly' else 2)
         )
-
+        
         # Update period type if changed
         new_period_type = period_type.lower().replace('-', '')
         if new_period_type != st.session_state.target_period_type:
@@ -1530,11 +1477,11 @@ elif st.session_state.current_page == "targets":
             else:  # alltime
                 st.session_state.current_target_period = 'All Time'
             st.rerun()
-
+        
         # Period navigation (only for monthly/yearly)
         if st.session_state.target_period_type != 'alltime':
             col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
-
+            
             with col_nav1:
                 if st.button("◀ Previous", use_container_width=True):
                     st.session_state.current_target_period = get_prev_period(
@@ -1542,11 +1489,11 @@ elif st.session_state.current_page == "targets":
                         st.session_state.target_period_type
                     )
                     st.rerun()
-
+            
             with col_nav2:
                 st.markdown(f"<h3 style='text-align: center;'>{st.session_state.current_target_period}</h3>", 
                            unsafe_allow_html=True)
-
+            
             with col_nav3:
                 if st.button("Next ▶", use_container_width=True):
                     st.session_state.current_target_period = get_next_period(
@@ -1557,26 +1504,26 @@ elif st.session_state.current_page == "targets":
         else:
             st.markdown(f"<h3 style='text-align: center;'>All-Time Targets</h3>", 
                        unsafe_allow_html=True)
-
+        
         st.divider()
-
+        
         # Get all categories
         all_categories = get_all_categories()
-
+        
         # Get current targets for this period
         period_key = st.session_state.current_target_period
         period_targets = st.session_state.targets[st.session_state.target_period_type].get(period_key, {})
-
+        
         # Category targets section
         st.subheader("Category Targets")
         st.caption("Set spending limits for each category")
-
+        
         # Create target inputs for each category
         updated_targets = {}
-
+        
         for category in all_categories:
             col_cat, col_input = st.columns([2, 1])
-
+            
             with col_cat:
                 # Get category color
                 color = get_category_color(category)
@@ -1587,7 +1534,7 @@ elif st.session_state.current_page == "targets":
                     f'{category}</div>',
                     unsafe_allow_html=True
                 )
-
+            
             with col_input:
                 # Input field for target amount
                 current_value = period_targets.get(category, 0.0)
@@ -1600,15 +1547,15 @@ elif st.session_state.current_page == "targets":
                     label_visibility="collapsed"
                 )
                 updated_targets[category] = target_value
-
+        
         # Save button
         if st.button("💾 Save Targets", type="primary", use_container_width=True):
             # Update targets in session state
             if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                 st.session_state.targets[st.session_state.target_period_type][period_key] = {}
-
+            
             st.session_state.targets[st.session_state.target_period_type][period_key] = updated_targets
-
+            
             # Save to project file only if a real project (not "Current Session") is loaded
             if st.session_state.current_project and st.session_state.current_project != "Current Session":
                 success, error = save_targets_to_project(st.session_state.current_project)
@@ -1621,7 +1568,7 @@ elif st.session_state.current_page == "targets":
                 st.success(f"✅ Targets saved for {period_key}!")
                 if not st.session_state.current_project or st.session_state.current_project == "Current Session":
                     st.info("💡 Save your transactions as a project to persist these targets permanently.")
-
+    
     with chat_col:
         # Create container for entire chat section
         chat_container = st.container()
@@ -1670,13 +1617,13 @@ elif st.session_state.current_page == "targets":
                 'role': 'user',
                 'content': user_question
             })
-
+            
             # Build context with or without transaction data
             all_cats = get_all_categories()
             current_targets = st.session_state.targets[st.session_state.target_period_type].get(
                 st.session_state.current_target_period, {}
             )
-
+            
             # Build targets context
             targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
             if current_targets:
@@ -1684,13 +1631,13 @@ elif st.session_state.current_page == "targets":
                     targets_context += f"- {cat}: £{target:.2f}\n"
             else:
                 targets_context += "No targets set for this period yet.\n"
-
+            
             # Build context - with or without transaction data
             if st.session_state.transactions is not None and st.session_state.categorized:
                 df = st.session_state.transactions
                 total = df['amount'].sum()
                 category_summary = df.groupby('category')['amount'].sum().to_dict()
-
+                
                 context = f"""User's spending data:
 
 SUMMARY:
@@ -1718,7 +1665,7 @@ Current period: {st.session_state.current_target_period}
 User question: {user_question}
 
 Provide helpful budgeting advice. If the user wants to set or modify targets, use the update_targets function to make the changes."""
-
+            
             # Define function for AI to update targets
             update_targets_function = {
                 "name": "update_targets",
@@ -1737,11 +1684,11 @@ Provide helpful budgeting advice. If the user wants to set or modify targets, us
                     "required": ["targets"]
                 }
             }
-
+            
             if client:
                 try:
                     ai_response = "I can help you set budgets! Just tell me which categories and amounts you'd like."
-
+                    
                     response = client.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=[{
@@ -1769,52 +1716,52 @@ Always call the function when setting/updating targets - don't just describe wha
                         temperature=0.7,
                         max_tokens=1000
                     )
-
+                    
                     response_message = response.choices[0].message
-
+                    
                     # Check if AI wants to call a function
                     if response_message.function_call:
                         function_name = response_message.function_call.name
-
+                        
                         try:
                             function_args = json.loads(response_message.function_call.arguments)
                         except json.JSONDecodeError as e:
                             ai_response = f"❌ Error: Could not parse AI response. Please try rephrasing your request."
                             function_args = None
-
+                        
                         if function_name == "update_targets" and function_args:
                             # Validate and extract targets
                             targets_to_update = None
-
+                            
                             if 'targets' in function_args and isinstance(function_args['targets'], dict):
                                 targets_to_update = function_args['targets']
                             elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
                                 # Sometimes AI returns the dict directly without nesting
                                 targets_to_update = function_args
-
+                            
                             if targets_to_update:
                                 # Update the targets
                                 period_key = st.session_state.current_target_period
                                 if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                                     st.session_state.targets[st.session_state.target_period_type][period_key] = {}
-
+                                
                                 # Update each target
                                 for category, amount in targets_to_update.items():
                                     st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
-
+                                    
                                     # Clear the widget state so it updates with new value
                                     widget_key = f"target_{category}_{period_key}"
                                     if widget_key in st.session_state:
                                         del st.session_state[widget_key]
-
+                                
                                 # Save to project file only if a real project (not "Current Session") is loaded
                                 if st.session_state.current_project and st.session_state.current_project != "Current Session":
                                     save_targets_to_project(st.session_state.current_project)
-
+                                
                                 # Create confirmation message
                                 updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
                                 ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
-
+                                
                                 # Add info if using Current Session
                                 if not st.session_state.current_project or st.session_state.current_project == "Current Session":
                                     ai_response += "\n\n💡 Tip: Save your transactions as a project to persist these targets permanently."
@@ -1822,12 +1769,12 @@ Always call the function when setting/updating targets - don't just describe wha
                                 ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
                     else:
                         ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
-
+                    
                     st.session_state.chat_messages.append({
                         'role': 'assistant',
                         'content': ai_response
                     })
-
+                    
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
