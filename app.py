@@ -1466,6 +1466,12 @@ elif st.session_state.current_page == "targets":
                     st.session_state.transactions = loaded_df
                     st.session_state.current_project = selected_option
                     st.session_state.categorized = True
+                    
+                    # Clear all target widget states to force refresh with new project's targets
+                    keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
+                    for key in keys_to_delete:
+                        del st.session_state[key]
+                    
                     st.rerun()
             elif selected_option == "Current Session" and st.session_state.current_project != "Current Session":
                 # Switching to Current Session - reset to clean state
@@ -1476,6 +1482,12 @@ elif st.session_state.current_page == "targets":
                     'alltime': {}
                 }
                 st.session_state.chat_messages = []
+                
+                # Clear all target widget states
+                keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
+                for key in keys_to_delete:
+                    del st.session_state[key]
+                
                 st.rerun()
     
     # Helper functions for period navigation
@@ -1529,6 +1541,12 @@ elif st.session_state.current_page == "targets":
                 st.session_state.current_target_period = str(now.year)
             else:  # alltime
                 st.session_state.current_target_period = 'All Time'
+            
+            # Clear all target widget states to force refresh
+            keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
+            for key in keys_to_delete:
+                del st.session_state[key]
+            
             st.rerun()
         
         # Period navigation (only for monthly/yearly)
@@ -1541,6 +1559,12 @@ elif st.session_state.current_page == "targets":
                         st.session_state.current_target_period, 
                         st.session_state.target_period_type
                     )
+                    
+                    # Clear all target widget states to force refresh
+                    keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
+                    for key in keys_to_delete:
+                        del st.session_state[key]
+                    
                     st.rerun()
             
             with col_nav2:
@@ -1553,6 +1577,12 @@ elif st.session_state.current_page == "targets":
                         st.session_state.current_target_period, 
                         st.session_state.target_period_type
                     )
+                    
+                    # Clear all target widget states to force refresh
+                    keys_to_delete = [key for key in st.session_state.keys() if key.startswith('target_')]
+                    for key in keys_to_delete:
+                        del st.session_state[key]
+                    
                     st.rerun()
         else:
             st.markdown(f"<h3 style='text-align: center;'>All-Time Targets</h3>", 
