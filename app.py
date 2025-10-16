@@ -352,6 +352,50 @@ def append_to_project(project_name, new_transactions_df):
         return None, f"Error appending to project: {str(e)}"
 
 
+def save_targets_to_project(project_name):
+    """Save current targets to the project file without modifying transactions"""
+    try:
+        safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"projects/{safe_name}.json"
+        
+        # Read existing project data
+        if not os.path.exists(filename):
+            return False, "Project file not found"
+        
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        
+        # Update only the targets
+        data['targets'] = st.session_state.targets
+        
+        # Write back to file
+        with open(filename, 'w') as f:
+            json.dump(data, f, indent=2)
+        
+        return True, None
+    except Exception as e:
+        return False, f"Error saving targets: {str(e)}"
+
+
+def update_targets_and_save(period_type, period_key, category, amount):
+    """Update a target and automatically save to current project (only for real saved projects)"""
+    try:
+        # Update the target in session state
+        if period_key not in st.session_state.targets[period_type]:
+            st.session_state.targets[period_type][period_key] = {}
+        
+        st.session_state.targets[period_type][period_key][category] = amount
+        
+        # Save to project file only if a real project (not "Current Session") is loaded
+        if st.session_state.current_project and st.session_state.current_project != "Current Session":
+            save_targets_to_project(st.session_state.current_project)
+        
+        return True
+    except Exception as e:
+        st.error(f"Error updating targets: {str(e)}")
+        return False
+
+
 # AI categorization function (categorization only - no summary)
 def categorize_transactions(df):
     """Batch categorize transactions using AI"""
@@ -1498,7 +1542,19 @@ elif st.session_state.current_page == "targets":
                 st.session_state.targets[st.session_state.target_period_type][period_key] = {}
             
             st.session_state.targets[st.session_state.target_period_type][period_key] = updated_targets
-            st.success(f"✅ Targets saved for {period_key}!")
+            
+            # Save to project file only if a real project (not "Current Session") is loaded
+            if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                success, error = save_targets_to_project(st.session_state.current_project)
+                if success:
+                    st.success(f"✅ Targets saved for {period_key}!")
+                else:
+                    st.error(f"❌ Failed to save targets: {error}")
+            else:
+                # For Current Session, targets are saved in memory only
+                st.success(f"✅ Targets saved for {period_key}!")
+                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                    st.info("💡 Save your transactions as a project to persist these targets permanently.")
     
     with chat_col:
         # Create container for entire chat section
@@ -1608,6 +1664,8 @@ Provide helpful financial coaching. If the user wants to set or modify targets, 
                 
                 if client:
                     try:
+                        ai_response = "I can help you set budgets! Just tell me which categories and amounts you'd like."
+                        
                         response = client.chat.completions.create(
                             model="gpt-4o-mini",
                             messages=[{
@@ -1667,9 +1725,17 @@ Always call the function when setting/updating targets - don't just describe wha
                                         if widget_key in st.session_state:
                                             del st.session_state[widget_key]
                                     
+                                    # Save to project file only if a real project (not "Current Session") is loaded
+                                    if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                                        save_targets_to_project(st.session_state.current_project)
+                                    
                                     # Create confirmation message
                                     updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
                                     ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                                    
+                                    # Add info if using Current Session
+                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                        ai_response += "\n\n💡 Tip: Save your transactions as a project to persist these targets permanently."
                                 else:
                                     ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
                         else:
