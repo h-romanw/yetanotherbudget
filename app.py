@@ -676,10 +676,10 @@ if st.session_state.current_page == "summarize":
     existing_projects = [p['name'] for p in st.session_state.projects_list]
     
     if existing_projects:
-        col_proj1, col_proj2, col_proj3 = st.columns([3, 1, 1])
+        col_proj1, col_proj2 = st.columns([3, 1])
         with col_proj1:
             selected_project = st.selectbox(
-                "Load existing project or start new",
+                "Select project to load or start new",
                 ["-- Start New --"] + existing_projects,
                 index=0 if not st.session_state.current_project else (
                     (["-- Start New --"] + existing_projects).index(st.session_state.current_project)
@@ -689,20 +689,6 @@ if st.session_state.current_page == "summarize":
             )
         
         with col_proj2:
-            if selected_project != "-- Start New --":
-                if st.button("📂 Load Project", type="primary", use_container_width=True):
-                    loaded_df, error = load_project(selected_project)
-                    if error:
-                        st.error(f"❌ {error}")
-                    else:
-                        st.session_state.transactions = loaded_df
-                        st.session_state.current_project = selected_project
-                        st.session_state.categorized = True
-                        st.session_state.analyzed = False
-                        st.success(f"✅ Loaded project '{selected_project}'")
-                        st.rerun()
-        
-        with col_proj3:
             if selected_project != "-- Start New --":
                 if st.button("🗑️ Delete", type="secondary", use_container_width=True):
                     success, error = delete_project(selected_project)
@@ -722,15 +708,29 @@ if st.session_state.current_page == "summarize":
     else:
         st.info("💡 No saved projects yet. Upload data below to create your first project.")
     
+    # Show current project status
     if st.session_state.current_project:
         st.success(f"📁 Current project: **{st.session_state.current_project}**")
+    elif selected_project != "-- Start New --":
+        # User selected a project but hasn't loaded it yet
+        if st.button("📂 Load Project", type="primary", use_container_width=True):
+            loaded_df, error = load_project(selected_project)
+            if error:
+                st.error(f"❌ {error}")
+            else:
+                st.session_state.transactions = loaded_df
+                st.session_state.current_project = selected_project
+                st.session_state.categorized = True
+                st.session_state.analyzed = False
+                st.success(f"✅ Loaded project '{selected_project}'")
+                st.rerun()
     
     st.divider()
 
     # File uploader
     if st.session_state.transactions is None:
         uploaded_file = st.file_uploader(
-            "Upload your bank statement CSV",
+            "Upload your bank statement CSV" + (f" (will append to '{st.session_state.current_project}')" if st.session_state.current_project else ""),
             type=['csv'],
             help="Upload any CSV bank statement - AI will automatically identify the columns")
 
@@ -741,10 +741,22 @@ if st.session_state.current_page == "summarize":
                 if error:
                     st.error(f"❌ {error}")
                 elif df is not None:
-                    st.success(f"✅ Successfully parsed {len(df)} transactions" + 
-                              (" (with balance tracking)" if 'balance' in df.columns else ""))
-                    st.session_state.transactions = df
-                    st.rerun()
+                    # If a project is loaded, append to it
+                    if st.session_state.current_project:
+                        combined_df, append_error = append_to_project(st.session_state.current_project, df)
+                        if append_error:
+                            st.error(f"❌ {append_error}")
+                        else:
+                            st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
+                                      (" (with balance tracking)" if 'balance' in df.columns else ""))
+                            st.session_state.transactions = combined_df
+                            st.session_state.categorized = True
+                            st.rerun()
+                    else:
+                        st.success(f"✅ Successfully parsed {len(df)} transactions" + 
+                                  (" (with balance tracking)" if 'balance' in df.columns else ""))
+                        st.session_state.transactions = df
+                        st.rerun()
         else:
             # Empty state
             st.info("👆 Upload any CSV bank statement - AI will automatically detect the format")
@@ -901,63 +913,39 @@ if st.session_state.current_page == "summarize":
             
             st.divider()
             
-            # Save/Append Project Section
-            st.subheader("💾 Projects")
+            # Save Project Section
+            st.subheader("💾 Save Project")
             
-            col_save1, col_save2 = st.columns([2, 1])
-            
-            with col_save1:
-                # Check if there are existing projects
-                existing_projects = [p['name'] for p in st.session_state.projects_list]
-                
-                # Project save mode selection
-                save_mode = st.radio(
-                    "Choose action:",
-                    ["Save as new project", "Append to existing project"] if existing_projects else ["Save as new project"],
-                    horizontal=True
+            # Show project name input only if no project is loaded (-- Start New -- selected)
+            if not st.session_state.current_project:
+                project_name = st.text_input(
+                    "Project name",
+                    placeholder="e.g., October 2024",
+                    key="new_project_name"
                 )
                 
-                if save_mode == "Save as new project":
-                    project_name = st.text_input(
-                        "Project name",
-                        placeholder="e.g., October 2024",
-                        key="new_project_name"
-                    )
-                    
-                    if st.button("💾 Save Project", type="primary"):
-                        if project_name and project_name.strip():
-                            success, result = save_project(project_name.strip(), edited_df)
-                            if success:
-                                st.success(f"✅ Project '{project_name}' saved successfully!")
-                                st.session_state.current_project = project_name.strip()
-                                st.session_state.projects_list = list_projects()
-                            else:
-                                st.error(f"❌ Error saving project: {result}")
-                        else:
-                            st.error("❌ Please enter a project name")
-                else:
-                    # Append to existing project
-                    selected_project = st.selectbox(
-                        "Select project to append to",
-                        existing_projects,
-                        key="append_project_select"
-                    )
-                    
-                    if st.button("➕ Append to Project", type="primary"):
-                        combined_df, error = append_to_project(selected_project, edited_df)
-                        if error:
-                            st.error(f"❌ {error}")
-                        else:
-                            st.success(f"✅ Added {len(edited_df)} transactions to '{selected_project}'!")
-                            st.session_state.transactions = combined_df
-                            st.session_state.current_project = selected_project
+                if st.button("💾 Save as New Project", type="primary", use_container_width=True):
+                    if project_name and project_name.strip():
+                        success, result = save_project(project_name.strip(), edited_df)
+                        if success:
+                            st.success(f"✅ Project '{project_name}' saved successfully!")
+                            st.session_state.current_project = project_name.strip()
                             st.session_state.projects_list = list_projects()
-            
-            with col_save2:
-                if st.session_state.current_project:
-                    st.info(f"📁 Current project:\n**{st.session_state.current_project}**")
-                else:
-                    st.info("💡 Save your analysis to create a project")
+                        else:
+                            st.error(f"❌ Error saving project: {result}")
+                    else:
+                        st.error("❌ Please enter a project name")
+            else:
+                # If project is loaded, save updates to it
+                st.info(f"📁 Saving to: **{st.session_state.current_project}**")
+                
+                if st.button("💾 Save Changes to Project", type="primary", use_container_width=True):
+                    success, result = save_project(st.session_state.current_project, edited_df)
+                    if success:
+                        st.success(f"✅ Project '{st.session_state.current_project}' updated successfully!")
+                        st.session_state.projects_list = list_projects()
+                    else:
+                        st.error(f"❌ Error saving project: {result}")
 
         # Raw data expander
         with st.expander("📋 View Raw Data"):
