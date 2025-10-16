@@ -1476,9 +1476,7 @@ elif st.session_state.current_page == "targets":
                 'content': user_question
             })
             
-            # TODO: Add OpenAI function calling for target updates
-            # For now, just provide context about targets
-            
+            # OpenAI function calling for target updates
             if st.session_state.transactions is not None and st.session_state.categorized:
                 df = st.session_state.transactions
                 total = df['amount'].sum()
@@ -1497,6 +1495,9 @@ elif st.session_state.current_page == "targets":
                 else:
                     targets_context += "No targets set for this period yet.\n"
                 
+                # Get list of all categories
+                all_cats = get_all_categories()
+                
                 context = f"""User's spending data:
 
 SUMMARY:
@@ -1505,9 +1506,32 @@ SUMMARY:
 - Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
 {targets_context}
 
+Available categories: {', '.join(all_cats)}
+Current period type: {st.session_state.target_period_type}
+Current period: {st.session_state.current_target_period}
+
 User question: {user_question}
 
-Provide helpful financial coaching. If the user wants to set or modify targets, acknowledge their request and explain what they should do (for now, targets can only be set manually)."""
+Provide helpful financial coaching. If the user wants to set or modify targets, use the update_targets function to make the changes."""
+                
+                # Define function for AI to update targets
+                update_targets_function = {
+                    "name": "update_targets",
+                    "description": "Update spending targets for one or more categories. The targets will be set for the current period.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "targets": {
+                                "type": "object",
+                                "description": "Dictionary of category names to target amounts in GBP",
+                                "additionalProperties": {
+                                    "type": "number"
+                                }
+                            }
+                        },
+                        "required": ["targets"]
+                    }
+                }
                 
                 if client:
                     try:
@@ -1515,16 +1539,39 @@ Provide helpful financial coaching. If the user wants to set or modify targets, 
                             model="gpt-4o-mini",
                             messages=[{
                                 "role": "system",
-                                "content": "You are a helpful financial coaching assistant focused on budgeting and spending targets."
+                                "content": "You are a helpful financial coaching assistant focused on budgeting and spending targets. You can update user's spending targets using the update_targets function."
                             }, {
                                 "role": "user",
                                 "content": context
                             }],
+                            functions=[update_targets_function],
+                            function_call="auto",
                             temperature=0.7,
                             max_tokens=1000
                         )
                         
-                        ai_response = response.choices[0].message.content
+                        response_message = response.choices[0].message
+                        
+                        # Check if AI wants to call a function
+                        if response_message.function_call:
+                            function_name = response_message.function_call.name
+                            function_args = json.loads(response_message.function_call.arguments)
+                            
+                            if function_name == "update_targets":
+                                # Update the targets
+                                period_key = st.session_state.current_target_period
+                                if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                    st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+                                
+                                # Update each target
+                                for category, amount in function_args['targets'].items():
+                                    st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                
+                                # Create confirmation message
+                                updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in function_args['targets'].items()])
+                                ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                        else:
+                            ai_response = response_message.content
                         
                         st.session_state.chat_messages.append({
                             'role': 'assistant',
