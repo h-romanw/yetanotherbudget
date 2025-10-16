@@ -681,15 +681,42 @@ if st.session_state.current_page == "summarize":
     if existing_projects:
         col_proj1, col_proj2 = st.columns([3, 1])
         with col_proj1:
+            # Calculate the correct index for the selectbox
+            options = ["-- Start New --"] + existing_projects
+            if st.session_state.current_project and st.session_state.current_project in existing_projects:
+                default_index = options.index(st.session_state.current_project)
+            else:
+                default_index = 0
+            
             selected_project = st.selectbox(
                 "Select project to load or start new",
-                ["-- Start New --"] + existing_projects,
-                index=0 if not st.session_state.current_project else (
-                    (["-- Start New --"] + existing_projects).index(st.session_state.current_project)
-                    if st.session_state.current_project in existing_projects else 0
-                ),
+                options,
+                index=default_index,
                 key="project_selector_main"
             )
+            
+            # Handle project selection change
+            if selected_project == "-- Start New --":
+                # Clear current project if "Start New" is selected
+                if st.session_state.current_project is not None:
+                    st.session_state.current_project = None
+                    st.session_state.transactions = None
+                    st.session_state.categorized = False
+                    st.session_state.analyzed = False
+                    st.session_state.summary = None
+                    st.rerun()
+            elif selected_project != st.session_state.current_project:
+                # User selected a different project - load it
+                loaded_df, error = load_project(selected_project)
+                if error:
+                    st.error(f"❌ {error}")
+                else:
+                    st.session_state.transactions = loaded_df
+                    st.session_state.current_project = selected_project
+                    st.session_state.categorized = True
+                    st.session_state.analyzed = False
+                    st.session_state.summary = None
+                    st.rerun()
         
         with col_proj2:
             if selected_project != "-- Start New --":
@@ -714,19 +741,6 @@ if st.session_state.current_page == "summarize":
     # Show current project status
     if st.session_state.current_project:
         st.success(f"📁 Current project: **{st.session_state.current_project}**")
-    elif selected_project != "-- Start New --":
-        # User selected a project but hasn't loaded it yet
-        if st.button("📂 Load Project", type="primary", use_container_width=True):
-            loaded_df, error = load_project(selected_project)
-            if error:
-                st.error(f"❌ {error}")
-            else:
-                st.session_state.transactions = loaded_df
-                st.session_state.current_project = selected_project
-                st.session_state.categorized = True
-                st.session_state.analyzed = False
-                st.success(f"✅ Loaded project '{selected_project}'")
-                st.rerun()
     
     st.divider()
 
