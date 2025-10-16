@@ -245,7 +245,7 @@ If balance column doesn't exist, set it to null."""
 
 # Project management functions
 def save_project(project_name, transactions_df):
-    """Save categorized transactions and targets to a project file"""
+    """Save categorized transactions, targets, and chat history to a project file"""
     try:
         # Create projects directory if it doesn't exist
         os.makedirs('projects', exist_ok=True)
@@ -260,7 +260,8 @@ def save_project(project_name, transactions_df):
             'transactions': transactions_df.to_dict('records'),
             'created_at': pd.Timestamp.now().isoformat(),
             'total_transactions': len(transactions_df),
-            'targets': st.session_state.targets  # Save targets
+            'targets': st.session_state.targets,
+            'chat_messages': st.session_state.get('chat_messages', [])
         }
         
         with open(filename, 'w') as f:
@@ -272,7 +273,7 @@ def save_project(project_name, transactions_df):
 
 
 def load_project(project_name):
-    """Load project from file including targets"""
+    """Load project from file including targets and chat history"""
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
@@ -282,9 +283,21 @@ def load_project(project_name):
         
         df = pd.DataFrame(data['transactions'])
         
-        # Load targets if they exist
+        # Reset to clean state first to ensure project isolation
+        st.session_state.targets = {
+            'monthly': {},
+            'yearly': {},
+            'alltime': {}
+        }
+        st.session_state.chat_messages = []
+        
+        # Load project-specific targets if they exist
         if 'targets' in data:
             st.session_state.targets = data['targets']
+        
+        # Load project-specific chat history if it exists
+        if 'chat_messages' in data:
+            st.session_state.chat_messages = data['chat_messages']
         
         return df, None
     except Exception as e:
@@ -353,7 +366,7 @@ def append_to_project(project_name, new_transactions_df):
 
 
 def save_targets_to_project(project_name):
-    """Save current targets to the project file without modifying transactions"""
+    """Save current targets and chat history to the project file without modifying transactions"""
     try:
         safe_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).strip()
         filename = f"projects/{safe_name}.json"
@@ -365,8 +378,9 @@ def save_targets_to_project(project_name):
         with open(filename, 'r') as f:
             data = json.load(f)
         
-        # Update only the targets
+        # Update targets and chat history
         data['targets'] = st.session_state.targets
+        data['chat_messages'] = st.session_state.get('chat_messages', [])
         
         # Write back to file
         with open(filename, 'w') as f:
@@ -651,8 +665,7 @@ with st.sidebar:
     if st.button("🎯 Set Targets",
                  type="primary" if st.session_state.current_page == "targets"
                  else "secondary",
-                 use_container_width=True,
-                 disabled=not st.session_state.categorized):
+                 use_container_width=True):
         st.session_state.current_page = "targets"
         st.rerun()
 
@@ -1605,27 +1618,25 @@ elif st.session_state.current_page == "targets":
                 'content': user_question
             })
             
-            # OpenAI function calling for target updates
+            # Build context with or without transaction data
+            all_cats = get_all_categories()
+            current_targets = st.session_state.targets[st.session_state.target_period_type].get(
+                st.session_state.current_target_period, {}
+            )
+            
+            # Build targets context
+            targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
+            if current_targets:
+                for cat, target in current_targets.items():
+                    targets_context += f"- {cat}: £{target:.2f}\n"
+            else:
+                targets_context += "No targets set for this period yet.\n"
+            
+            # Build context - with or without transaction data
             if st.session_state.transactions is not None and st.session_state.categorized:
                 df = st.session_state.transactions
                 total = df['amount'].sum()
                 category_summary = df.groupby('category')['amount'].sum().to_dict()
-                
-                # Build context with targets
-                targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
-                current_targets = st.session_state.targets[st.session_state.target_period_type].get(
-                    st.session_state.current_target_period, {}
-                )
-                
-                if current_targets:
-                    for cat, target in current_targets.items():
-                        actual = category_summary.get(cat, 0)
-                        targets_context += f"- {cat}: £{target:.2f} target, £{actual:.2f} spent\n"
-                else:
-                    targets_context += "No targets set for this period yet.\n"
-                
-                # Get list of all categories
-                all_cats = get_all_categories()
                 
                 context = f"""User's spending data:
 
@@ -1642,112 +1653,130 @@ Current period: {st.session_state.current_target_period}
 User question: {user_question}
 
 Provide helpful financial coaching. If the user wants to set or modify targets, use the update_targets function to make the changes."""
-                
-                # Define function for AI to update targets
-                update_targets_function = {
-                    "name": "update_targets",
-                    "description": "Update spending targets for one or more categories. The targets will be set for the current period.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "targets": {
-                                "type": "object",
-                                "description": "Dictionary of category names to target amounts in GBP",
-                                "additionalProperties": {
-                                    "type": "number"
-                                }
+            else:
+                context = f"""Setting budget targets (no spending data uploaded yet):
+
+{targets_context}
+
+Available categories: {', '.join(all_cats)}
+Current period type: {st.session_state.target_period_type}
+Current period: {st.session_state.current_target_period}
+
+User question: {user_question}
+
+Provide helpful budgeting advice. If the user wants to set or modify targets, use the update_targets function to make the changes."""
+            
+            # Define function for AI to update targets
+            update_targets_function = {
+                "name": "update_targets",
+                "description": "Update spending targets for one or more categories. The targets will be set for the current period.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "targets": {
+                            "type": "object",
+                            "description": "Dictionary of category names to target amounts in GBP",
+                            "additionalProperties": {
+                                "type": "number"
                             }
-                        },
-                        "required": ["targets"]
-                    }
+                        }
+                    },
+                    "required": ["targets"]
                 }
-                
-                if client:
-                    try:
-                        ai_response = "I can help you set budgets! Just tell me which categories and amounts you'd like."
-                        
-                        response = client.chat.completions.create(
-                            model="gpt-4o-mini",
-                            messages=[{
-                                "role": "system",
-                                "content": """You are a helpful financial coaching assistant. When users ask you to set, update, or propose budgets/targets, you MUST use the update_targets function to make the changes. 
+            }
+            
+            if client:
+                try:
+                    ai_response = "I can help you set budgets! Just tell me which categories and amounts you'd like."
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{
+                            "role": "system",
+                            "content": """You are a helpful financial coaching assistant. When users ask you to set, update, or propose budgets/targets, you MUST use the update_targets function to make the changes. 
 
 Examples of when to use the function:
 - "Set my groceries to £300" -> Call update_targets with {"Groceries": 300}
 - "Propose a budget for all categories" -> Call update_targets with all categories
 - "Update my dining budget to £150" -> Call update_targets with {"Dining & Takeout": 150}
 
+IMPORTANT - Calculating yearly targets from monthly data:
+- When the period is YEARLY and you have monthly spending data, multiply by 12
+- Example: If monthly groceries spending is £250, yearly target should be £250 × 12 = £3000
+- Example: If monthly transport is £100, yearly target should be £100 × 12 = £1200
+- "Set yearly targets based on monthly spending" -> Calculate each category × 12
+
 Always call the function when setting/updating targets - don't just describe what should be done."""
                             }, {
                                 "role": "user",
                                 "content": context
                             }],
-                            functions=[update_targets_function],
-                            function_call="auto",
-                            temperature=0.7,
-                            max_tokens=1000
-                        )
+                        functions=[update_targets_function],
+                        function_call="auto",
+                        temperature=0.7,
+                        max_tokens=1000
+                    )
+                    
+                    response_message = response.choices[0].message
+                    
+                    # Check if AI wants to call a function
+                    if response_message.function_call:
+                        function_name = response_message.function_call.name
                         
-                        response_message = response.choices[0].message
+                        try:
+                            function_args = json.loads(response_message.function_call.arguments)
+                        except json.JSONDecodeError as e:
+                            ai_response = f"❌ Error: Could not parse AI response. Please try rephrasing your request."
+                            function_args = None
                         
-                        # Check if AI wants to call a function
-                        if response_message.function_call:
-                            function_name = response_message.function_call.name
+                        if function_name == "update_targets" and function_args:
+                            # Validate and extract targets
+                            targets_to_update = None
                             
-                            try:
-                                function_args = json.loads(response_message.function_call.arguments)
-                            except json.JSONDecodeError as e:
-                                ai_response = f"❌ Error: Could not parse AI response. Please try rephrasing your request."
-                                function_args = None
+                            if 'targets' in function_args and isinstance(function_args['targets'], dict):
+                                targets_to_update = function_args['targets']
+                            elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
+                                # Sometimes AI returns the dict directly without nesting
+                                targets_to_update = function_args
                             
-                            if function_name == "update_targets" and function_args:
-                                # Validate and extract targets
-                                targets_to_update = None
+                            if targets_to_update:
+                                # Update the targets
+                                period_key = st.session_state.current_target_period
+                                if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                    st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                 
-                                if 'targets' in function_args and isinstance(function_args['targets'], dict):
-                                    targets_to_update = function_args['targets']
-                                elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
-                                    # Sometimes AI returns the dict directly without nesting
-                                    targets_to_update = function_args
+                                # Update each target
+                                for category, amount in targets_to_update.items():
+                                    st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                    
+                                    # Clear the widget state so it updates with new value
+                                    widget_key = f"target_{category}_{period_key}"
+                                    if widget_key in st.session_state:
+                                        del st.session_state[widget_key]
                                 
-                                if targets_to_update:
-                                    # Update the targets
-                                    period_key = st.session_state.current_target_period
-                                    if period_key not in st.session_state.targets[st.session_state.target_period_type]:
-                                        st.session_state.targets[st.session_state.target_period_type][period_key] = {}
-                                    
-                                    # Update each target
-                                    for category, amount in targets_to_update.items():
-                                        st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
-                                        
-                                        # Clear the widget state so it updates with new value
-                                        widget_key = f"target_{category}_{period_key}"
-                                        if widget_key in st.session_state:
-                                            del st.session_state[widget_key]
-                                    
-                                    # Save to project file only if a real project (not "Current Session") is loaded
-                                    if st.session_state.current_project and st.session_state.current_project != "Current Session":
-                                        save_targets_to_project(st.session_state.current_project)
-                                    
-                                    # Create confirmation message
-                                    updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
-                                    ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
-                                    
-                                    # Add info if using Current Session
-                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
-                                        ai_response += "\n\n💡 Tip: Save your transactions as a project to persist these targets permanently."
-                                else:
-                                    ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
-                        else:
-                            ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
-                        
-                        st.session_state.chat_messages.append({
-                            'role': 'assistant',
-                            'content': ai_response
-                        })
-                        
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
-                else:
-                    st.error("OpenAI API key not configured")
+                                # Save to project file only if a real project (not "Current Session") is loaded
+                                if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                                    save_targets_to_project(st.session_state.current_project)
+                                
+                                # Create confirmation message
+                                updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
+                                ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                                
+                                # Add info if using Current Session
+                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                    ai_response += "\n\n💡 Tip: Save your transactions as a project to persist these targets permanently."
+                            else:
+                                ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
+                    else:
+                        ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
+                    
+                    st.session_state.chat_messages.append({
+                        'role': 'assistant',
+                        'content': ai_response
+                    })
+                    
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+            else:
+                st.error("OpenAI API key not configured")
