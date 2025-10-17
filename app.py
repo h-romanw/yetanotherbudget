@@ -1375,22 +1375,25 @@ elif st.session_state.current_page == "analyze":
 
                     # Create detailed spending analysis by category and date
                     category_details = []
-                    for category in category_summary.keys():
+                    for category in sorted(category_summary.keys()):
                         cat_df = df_with_dates[df_with_dates['category'] == category]
                         cat_total = cat_df['amount'].sum()
                         cat_avg = cat_df['amount'].mean()
                         cat_max = cat_df['amount'].max()
                         
-                        # Get top 5 spends in this category
+                        # Get top 5 spends in this category with all details
                         top_spends = cat_df.nlargest(5, 'amount')[['date', 'payee', 'amount']]
                         top_spends_text = "; ".join([
                             f"{row['date'].strftime('%d/%m/%Y')}: {row['payee']} £{row['amount']:.2f}"
                             for _, row in top_spends.iterrows()
                         ])
                         
-                        category_details.append(
-                            f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max £{cat_max:.2f} | Top 5 spends: {top_spends_text}"
-                        )
+                        # Include the single biggest transaction prominently
+                        if len(cat_df) > 0:
+                            max_transaction = cat_df.loc[cat_df['amount'].idxmax()]
+                            category_details.append(
+                                f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max single transaction: £{cat_max:.2f} ({max_transaction['payee']} on {max_transaction['date'].strftime('%d/%m/%Y')}) | Top 5 spends: {top_spends_text}"
+                            )
                     
                     # Get spending by month with detailed breakdown by category
                     df_with_dates['month'] = df_with_dates['date'].dt.to_period('M')
@@ -1442,12 +1445,14 @@ BALANCE TRACKING:
                     project_context = f" for project: '{st.session_state.current_project}'" if st.session_state.current_project and st.session_state.current_project != "Current Session" else ""
                     system_message = f"""You are a helpful financial coaching assistant analyzing spending data{project_context}.
 
+ALL TRANSACTION DATA IS PROVIDED BELOW - USE THIS TO ANSWER QUESTIONS:
+
 DATA SUMMARY:
 - Total spent: £{total:.2f}
 - Transactions: {len(df)}
 - Date range: {df_with_dates['date'].min().strftime('%d/%m/%Y')} to {df_with_dates['date'].max().strftime('%d/%m/%Y')}
 {balance_info}
-CATEGORY BREAKDOWN:
+CATEGORY BREAKDOWN (with exact transaction details):
 {chr(10).join(category_details)}
 
 MONTHLY BREAKDOWN:
@@ -1456,13 +1461,14 @@ MONTHLY BREAKDOWN:
 TOP SPENDING DAYS:
 {chr(10).join([f'- {date.strftime("%d/%m/%Y")}: £{amount:.2f}' for date, amount in daily_spending.head(5).items()])}
 
-INSTRUCTIONS:
-- Answer questions using the specific data provided above
-- When asked about a month (e.g., "July"), find it in MONTHLY BREAKDOWN
-- When asked about categories, use CATEGORY BREAKDOWN
-- When asked about biggest spends, reference the top spends listed for each category/month
-- Be specific with amounts, dates, and payee names from the data
-- If asked about something not in the data, say so clearly"""
+CRITICAL INSTRUCTIONS:
+- ALL transaction data is in the CATEGORY BREAKDOWN above - each category shows the max transaction with payee and date
+- When asked "what was my most expensive [category]", look in CATEGORY BREAKDOWN for that category
+- The "Max single transaction" field shows the biggest spend in each category with payee name and date
+- Example: For "Bills & Utilities", you can see the exact biggest transaction listed
+- Be specific with amounts, dates, and payee names from the data above
+- If asked about something not in the data, say so clearly
+- Always reference the actual transaction details provided in the data"""
 
                     if client:
                         try:
