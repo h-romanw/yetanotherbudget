@@ -6,20 +6,13 @@ Yet Another Budget is a personal finance application that analyzes spending patt
 
 ## Recent Changes
 
-**2025-10-16: Complete AI Chat Architecture Redesign**
-- **Full Conversation Memory**: AI now maintains complete conversation history across messages (multi-turn conversations)
-- **Financial Coaching Focus**: Redesigned system prompt emphasizes natural conversations, budgeting advice, and financial insights
-- **Rich Data Context**: AI receives comprehensive project data including:
-  - Transaction breakdowns with percentages
-  - Daily spending averages and date ranges
-  - Current targets vs. actual spending
-  - Project-specific context
-- **Intelligent Budget Extrapolation**: AI can generate budgets across different time scales (weekly, monthly, yearly)
-- **Conversational Target Updates**: When setting targets, AI provides natural follow-up responses explaining changes
-- **Smart Data Analysis**: AI analyzes spending patterns, identifies anomalies, and suggests realistic budget adjustments
-- **Project-Level Isolation**: Targets and chat history fully reset when switching projects (no data bleeding)
-- **Set Targets Always Available**: Works without transaction data - provides general budgeting guidance
-- Automatic saving of targets and chat to project files
+**2025-10-16: Project-Level Isolation & AI Improvements**
+- **Chat History Persistence**: Chat messages now saved and loaded with each project
+- **Complete Project Isolation**: Targets and chat history fully reset when switching projects (no data bleeding)
+- **AI Yearly Target Generation**: Added explicit monthly-to-yearly calculation examples (e.g., £300/month = £3,600/year)
+- **Set Targets Always Available**: Removed requirement for transaction data - Set Targets accessible anytime
+- **AI Works Without Data**: AI chat provides budgeting advice even when no transaction data exists
+- Automatic saving of targets and chat to project files (both manual saves and AI updates)
 
 ## User Preferences
 

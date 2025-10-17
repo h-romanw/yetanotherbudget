@@ -1638,9 +1638,17 @@ elif st.session_state.current_page == "targets":
 
             with chat_messages_container:
                 if st.session_state.chat_messages:
-                    for msg in st.session_state.chat_messages:
-                        with st.chat_message(msg['role']):
-                            st.markdown(msg['content'])
+                    for idx, msg in enumerate(st.session_state.chat_messages):
+                        if msg['role'] == 'user':
+                            with st.chat_message("user"):
+                                st.markdown(msg['content'])
+                        else:
+                            # AI message with collapsible expander
+                            with st.chat_message("assistant"):
+                                with st.expander(
+                                        "View response",
+                                        expanded=(idx == len(st.session_state.chat_messages) - 1)):
+                                    st.markdown(msg['content'])
                 else:
                     st.info("Ask me about your spending or set budgets!")
 
@@ -1655,76 +1663,70 @@ elif st.session_state.current_page == "targets":
                 placeholder="Ask about targets or request changes...", key="targets_chat_input")
 
         if user_question and user_question.strip():
-            # Add user message to chat history
+            # Add user message
             st.session_state.chat_messages.append({
                 'role': 'user',
                 'content': user_question
             })
             
-            # Build rich data context for the AI
+            # Build context with or without transaction data
             all_cats = get_all_categories()
             current_targets = st.session_state.targets[st.session_state.target_period_type].get(
                 st.session_state.current_target_period, {}
             )
             
-            # Build comprehensive data context
-            data_context = f"**PROJECT CONTEXT**\n"
-            data_context += f"Project: {st.session_state.current_project if st.session_state.current_project else 'Current Session (not saved)'}\n"
-            data_context += f"Period Type: {st.session_state.target_period_type}\n"
-            data_context += f"Current Period: {st.session_state.current_target_period}\n\n"
+            # Build targets context
+            targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
+            if current_targets:
+                for cat, target in current_targets.items():
+                    targets_context += f"- {cat}: £{target:.2f}\n"
+            else:
+                targets_context += "No targets set for this period yet.\n"
             
-            # Add spending data if available
+            # Build context - with or without transaction data
             if st.session_state.transactions is not None and st.session_state.categorized:
                 df = st.session_state.transactions
                 total = df['amount'].sum()
-                num_transactions = len(df)
-                category_summary = df.groupby('category')['amount'].sum().sort_values(ascending=False)
+                category_summary = df.groupby('category')['amount'].sum().to_dict()
                 
-                # Calculate time period for extrapolation
-                if 'date' in df.columns:
-                    try:
-                        # Convert dates to datetime if they're strings
-                        dates_series = pd.to_datetime(df['date'], format='%d/%m/%Y', errors='coerce')
-                        date_range = (dates_series.max() - dates_series.min()).days + 1  # +1 for inclusive range
-                        data_context += f"**SPENDING DATA** ({num_transactions} transactions over {date_range} days)\n"
-                        data_context += f"Total Spent: £{total:.2f}\n"
-                        data_context += f"Daily Average: £{total/max(date_range, 1):.2f}\n\n"
-                    except:
-                        # Fallback if date conversion fails
-                        data_context += f"**SPENDING DATA** ({num_transactions} transactions)\n"
-                        data_context += f"Total Spent: £{total:.2f}\n\n"
-                else:
-                    data_context += f"**SPENDING DATA** ({num_transactions} transactions)\n"
-                    data_context += f"Total Spent: £{total:.2f}\n\n"
-                
-                data_context += "**Category Breakdown:**\n"
-                for cat, amount in category_summary.items():
-                    percentage = (amount / total) * 100
-                    data_context += f"• {cat}: £{amount:.2f} ({percentage:.1f}%)\n"
-                data_context += "\n"
+                context = f"""User's spending data:
+
+SUMMARY:
+- Total spent: £{total:.2f}
+- Number of transactions: {len(df)}
+- Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
+{targets_context}
+
+Available categories: {', '.join(all_cats)}
+Current period type: {st.session_state.target_period_type}
+Current period: {st.session_state.current_target_period}
+
+User question: {user_question}
+
+Provide helpful financial coaching. If the user wants to set or modify targets, use the update_targets function to make the changes."""
             else:
-                data_context += "**SPENDING DATA**: No transaction data uploaded yet.\n\n"
+                context = f"""Setting budget targets (no spending data uploaded yet):
+
+{targets_context}
+
+Available categories: {', '.join(all_cats)}
+Current period type: {st.session_state.target_period_type}
+Current period: {st.session_state.current_target_period}
+
+User question: {user_question}
+
+Provide helpful budgeting advice. If the user wants to set or modify targets, use the update_targets function to make the changes."""
             
-            # Add current targets
-            data_context += f"**CURRENT TARGETS** ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
-            if current_targets:
-                for cat, target in current_targets.items():
-                    data_context += f"• {cat}: £{target:.2f}\n"
-            else:
-                data_context += "No targets set for this period yet.\n"
-            
-            data_context += f"\n**Available Categories**: {', '.join(all_cats)}"
-            
-            # Define function for AI to update targets in the UI
+            # Define function for AI to update targets
             update_targets_function = {
                 "name": "update_targets",
-                "description": "Update spending targets for one or more categories. Use this when the user asks to set, update, or propose budget targets.",
+                "description": "Update spending targets for one or more categories. The targets will be set for the current period.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "targets": {
                             "type": "object",
-                            "description": "Dictionary mapping category names to target amounts in GBP (e.g., {'Groceries': 300, 'Transport': 150})",
+                            "description": "Dictionary of category names to target amounts in GBP",
                             "additionalProperties": {
                                 "type": "number"
                             }
@@ -1735,168 +1737,97 @@ elif st.session_state.current_page == "targets":
             }
             
             if client:
-                with st.spinner("Thinking..."):
-                    try:
-                        # Build comprehensive system prompt for financial coaching
-                        system_prompt = """You are an expert financial coach and budgeting assistant. Your role is to:
-
-1. **Have Natural Conversations**: Engage in friendly, helpful conversations about personal finance, budgeting, and spending habits.
-
-2. **Provide Financial Coaching**: Offer insights on:
-   - Spending patterns and trends
-   - Budget optimization strategies
-   - Financial goal setting
-   - Money-saving tips
-   - Expense categorization advice
-
-3. **Analyze Data Intelligently**: When transaction data is available:
-   - Identify spending patterns and anomalies
-   - Compare actual spending vs. targets
-   - Suggest realistic budget adjustments
-   - Extrapolate spending across different time scales
-
-4. **Generate Smart Budget Proposals**: When asked to propose budgets:
-   - For MONTHLY periods: Base suggestions on actual monthly spending or reasonable estimates
-   - For YEARLY periods: Calculate by multiplying monthly amounts by 12
-   - Consider the user's spending history and financial goals
-   - Propose realistic, achievable targets
-
-5. **Implement Target Changes**: When users want to set or update budget targets, use the update_targets function.
-   - Examples: "Set groceries to £300", "Update my dining budget", "Propose targets for all categories"
-   - Always calculate yearly targets as: monthly_amount × 12
-   - Don't just suggest changes - actually implement them using the function
-
-Remember:
-- Be conversational and supportive, not robotic
-- Base advice on the user's actual data when available
-- Explain your reasoning when proposing budgets
-- Ask clarifying questions if needed
-- Keep responses concise but informative"""
-
-                        # Build messages array with full conversation history
-                        messages = [{"role": "system", "content": system_prompt}]
-                        
-                        # Add data context as a system message
-                        messages.append({
+                try:
+                    ai_response = "I can help you set budgets! Just tell me which categories and amounts you'd like."
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{
                             "role": "system",
-                            "content": f"**CURRENT DATA CONTEXT**\n\n{data_context}"
-                        })
+                            "content": """You are a helpful financial coaching assistant. When users ask you to set, update, or propose budgets/targets, you MUST use the update_targets function to make the changes. 
+
+Examples of when to use the function:
+- "Set my groceries to £300" -> Call update_targets with {"Groceries": 300}
+- "Propose a budget for all categories" -> Call update_targets with all categories
+- "Update my dining budget to £150" -> Call update_targets with {"Dining & Takeout": 150}
+
+IMPORTANT - Calculating yearly targets from monthly data:
+- When the period is YEARLY and you have monthly spending data, multiply by 12
+- Example: If monthly groceries spending is £250, yearly target should be £250 × 12 = £3000
+- Example: If monthly transport is £100, yearly target should be £100 × 12 = £1200
+- "Set yearly targets based on monthly spending" -> Calculate each category × 12
+
+Always call the function when setting/updating targets - don't just describe what should be done."""
+                            }, {
+                                "role": "user",
+                                "content": context
+                            }],
+                        functions=[update_targets_function],
+                        function_call="auto",
+                        temperature=0.7,
+                        max_tokens=1000
+                    )
+                    
+                    response_message = response.choices[0].message
+                    
+                    # Check if AI wants to call a function
+                    if response_message.function_call:
+                        function_name = response_message.function_call.name
                         
-                        # Add all previous conversation messages (excluding the latest user question which is already appended)
-                        for msg in st.session_state.chat_messages[:-1]:
-                            messages.append({
-                                "role": msg['role'],
-                                "content": msg['content']
-                            })
+                        try:
+                            function_args = json.loads(response_message.function_call.arguments)
+                        except json.JSONDecodeError as e:
+                            ai_response = f"❌ Error: Could not parse AI response. Please try rephrasing your request."
+                            function_args = None
                         
-                        # Add the current user question
-                        messages.append({
-                            "role": "user",
-                            "content": user_question
-                        })
-                        
-                        # Call OpenAI API with full conversation history
-                        response = client.chat.completions.create(
-                            model="gpt-4o-mini",
-                            messages=messages,
-                            functions=[update_targets_function],
-                            function_call="auto",
-                            temperature=0.7,
-                            max_tokens=1500
-                        )
-                        
-                        response_message = response.choices[0].message
-                        ai_response = None
-                        
-                        # Check if AI wants to call a function to update targets
-                        if response_message.function_call:
-                            function_name = response_message.function_call.name
+                        if function_name == "update_targets" and function_args:
+                            # Validate and extract targets
+                            targets_to_update = None
                             
-                            try:
-                                function_args = json.loads(response_message.function_call.arguments)
-                            except json.JSONDecodeError:
-                                ai_response = "I had trouble understanding that request. Could you please rephrase it?"
-                                function_args = None
+                            if 'targets' in function_args and isinstance(function_args['targets'], dict):
+                                targets_to_update = function_args['targets']
+                            elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
+                                # Sometimes AI returns the dict directly without nesting
+                                targets_to_update = function_args
                             
-                            if function_name == "update_targets" and function_args:
-                                # Extract targets from function arguments
-                                targets_to_update = None
+                            if targets_to_update:
+                                # Update the targets
+                                period_key = st.session_state.current_target_period
+                                if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                    st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                 
-                                if 'targets' in function_args and isinstance(function_args['targets'], dict):
-                                    targets_to_update = function_args['targets']
-                                elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
-                                    # Handle case where AI returns dict directly
-                                    targets_to_update = function_args
+                                # Update each target
+                                for category, amount in targets_to_update.items():
+                                    st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                    
+                                    # Clear the widget state so it updates with new value
+                                    widget_key = f"target_{category}_{period_key}"
+                                    if widget_key in st.session_state:
+                                        del st.session_state[widget_key]
                                 
-                                if targets_to_update:
-                                    # Apply the target updates to session state
-                                    period_key = st.session_state.current_target_period
-                                    if period_key not in st.session_state.targets[st.session_state.target_period_type]:
-                                        st.session_state.targets[st.session_state.target_period_type][period_key] = {}
-                                    
-                                    # Update each target and clear widget cache
-                                    for category, amount in targets_to_update.items():
-                                        st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
-                                        widget_key = f"target_{category}_{period_key}"
-                                        if widget_key in st.session_state:
-                                            del st.session_state[widget_key]
-                                    
-                                    # Persist to project file if available
-                                    if st.session_state.current_project and st.session_state.current_project != "Current Session":
-                                        save_targets_to_project(st.session_state.current_project)
-                                    
-                                    # Generate a friendly confirmation response
-                                    # Make another API call to get a conversational response about what was set
-                                    followup_messages = messages + [{
-                                        "role": "assistant",
-                                        "content": None,
-                                        "function_call": {
-                                            "name": "update_targets",
-                                            "arguments": json.dumps({"targets": targets_to_update})
-                                        }
-                                    }, {
-                                        "role": "function",
-                                        "name": "update_targets",
-                                        "content": f"Successfully updated targets: {', '.join([f'{cat}: £{amt:.2f}' for cat, amt in targets_to_update.items()])}"
-                                    }]
-                                    
-                                    followup_response = client.chat.completions.create(
-                                        model="gpt-4o-mini",
-                                        messages=followup_messages,
-                                        temperature=0.7,
-                                        max_tokens=500
-                                    )
-                                    
-                                    ai_response = followup_response.choices[0].message.content
-                                    
-                                    # Fallback if no response
-                                    if not ai_response:
-                                        ai_response = f"Done! I've set your targets for {period_key}."
-                                else:
-                                    ai_response = "I need specific category names and amounts to set targets. For example, try asking 'Set my Groceries to £300'."
-                        else:
-                            # Regular conversational response (no function call)
-                            ai_response = response_message.content if response_message.content else "I'm here to help with your budgeting questions!"
-                        
-                        # Add AI response to chat history
-                        st.session_state.chat_messages.append({
-                            'role': 'assistant',
-                            'content': ai_response
-                        })
-                        
-                        st.rerun()
-                    except Exception as e:
-                        # Add error message to chat so conversation doesn't break
-                        error_msg = f"I encountered an error: {str(e)}\n\nPlease try again or rephrase your question."
-                        st.session_state.chat_messages.append({
-                            'role': 'assistant',
-                            'content': error_msg
-                        })
-                        st.rerun()
+                                # Save to project file only if a real project (not "Current Session") is loaded
+                                if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                                    save_targets_to_project(st.session_state.current_project)
+                                
+                                # Create confirmation message
+                                updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
+                                ai_response = f"✅ I've updated your targets for {period_key}:\n\n{updates_text}\n\nYour new targets are now in effect!"
+                                
+                                # Add info if using Current Session
+                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                    ai_response += "\n\n💡 Tip: Save your transactions as a project to persist these targets permanently."
+                            else:
+                                ai_response = f"❌ Error: Could not update targets. Please specify category names and amounts (e.g., 'Set Groceries to £300')."
+                    else:
+                        ai_response = response_message.content if response_message.content else "I can help you set budgets! Just tell me which categories and amounts you'd like."
+                    
+                    st.session_state.chat_messages.append({
+                        'role': 'assistant',
+                        'content': ai_response
+                    })
+                    
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
             else:
-                # No API key - add error to chat
-                st.session_state.chat_messages.append({
-                    'role': 'assistant',
-                    'content': "⚠️ OpenAI API key not configured. Please add your API key to use the AI assistant."
-                })
-                st.rerun()
+                st.error("OpenAI API key not configured")
