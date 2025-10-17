@@ -2,8 +2,11 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from openai import OpenAI
+from dotenv import load_dotenv
 import json
 import os
+
+load_dotenv()
 
 st.set_page_config(
     page_title="Yet Another Budget",
@@ -25,7 +28,7 @@ st.set_page_config(
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.error(
-        "⚠️ OpenAI API key not found. Please add OPENAI_API_KEY to your Replit Secrets."
+        "⚠️ OpenAI API key not found. Please add OPENAI_API_KEY to your .env file in the root directory."
     )
     client = None
 else:
