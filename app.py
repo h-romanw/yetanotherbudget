@@ -1352,7 +1352,7 @@ elif st.session_state.current_page == "analyze":
                         cat_avg = cat_df['amount'].mean()
                         cat_max = cat_df['amount'].max()
                         
-                        # Get top 5 spends in this category (increased from 3)
+                        # Get top 5 spends in this category
                         top_spends = cat_df.nlargest(5, 'amount')[['date', 'payee', 'amount']]
                         top_spends_text = "; ".join([
                             f"{row['date'].strftime('%d/%m/%Y')}: {row['payee']} £{row['amount']:.2f}"
@@ -1409,46 +1409,52 @@ BALANCE TRACKING:
                         except:
                             balance_info = ""
 
-                    context = f"""User's spending data{f' for project: {st.session_state.current_project}' if st.session_state.current_project else ''}:
+                    # Build the system message with data context
+                    system_message = f"""You are a helpful financial coaching assistant analyzing spending data{f' for project: {st.session_state.current_project}' if st.session_state.current_project else ''}.
 
-SUMMARY:
+DATA SUMMARY:
 - Total spent: £{total:.2f}
-- Number of transactions: {len(df)}
+- Transactions: {len(df)}
 - Date range: {df_with_dates['date'].min().strftime('%d/%m/%Y')} to {df_with_dates['date'].max().strftime('%d/%m/%Y')}
 {balance_info}
-SPENDING BY CATEGORY (with top 5 spends each):
+CATEGORY BREAKDOWN:
 {chr(10).join(category_details)}
 
-DETAILED MONTHLY BREAKDOWN (with categories and top spends per month):
+MONTHLY BREAKDOWN:
 {monthly_text}
 
-DAILY SPENDING (top 5 days):
+TOP SPENDING DAYS:
 {chr(10).join([f'- {date.strftime("%d/%m/%Y")}: £{amount:.2f}' for date, amount in daily_spending.head(5).items()])}
 
-User question: {user_question}
-
-Provide a helpful, specific response using the transaction data above. You have complete spending information organized by:
-- Overall category totals with top 5 spends per category
-- Monthly breakdowns showing category spending and top transactions for each month
-- Daily spending patterns
-
-You can answer questions about specific months (e.g., "July"), specific categories, biggest spends in any time period, and patterns. When asked about a specific month, use the DETAILED MONTHLY BREAKDOWN section to find that month's data."""
+INSTRUCTIONS:
+- Answer questions using the specific data provided above
+- When asked about a month (e.g., "July"), find it in MONTHLY BREAKDOWN
+- When asked about categories, use CATEGORY BREAKDOWN
+- When asked about biggest spends, reference the top spends listed for each category/month
+- Be specific with amounts, dates, and payee names from the data
+- If asked about something not in the data, say so clearly"""
 
                     if client:
                         try:
+                            # Build messages array with conversation history
+                            messages = [
+                                {"role": "system", "content": system_message}
+                            ]
+                            
+                            # Add last 6 messages from history (3 exchanges) for context
+                            # This keeps the AI aware of the conversation flow
+                            recent_messages = st.session_state.chat_messages[-6:] if len(st.session_state.chat_messages) > 6 else st.session_state.chat_messages
+                            for msg in recent_messages:
+                                messages.append({
+                                    "role": msg['role'],
+                                    "content": msg['content']
+                                })
+                            
                             response = client.chat.completions.create(
                                 model="gpt-4o-mini",
-                                messages=[{
-                                    "role":
-                                    "system",
-                                    "content":
-                                    "You are a helpful financial coaching assistant. Analyze the transaction data carefully and provide specific, data-driven insights."
-                                }, {
-                                    "role": "user",
-                                    "content": context
-                                }],
-                                temperature=0.7,
-                                max_tokens=1000)
+                                messages=messages,
+                                temperature=0.3,  # Lower temperature for more focused responses
+                                max_tokens=800)
 
                             ai_response = response.choices[0].message.content
 
