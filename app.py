@@ -104,6 +104,105 @@ def get_category_color(category):
     
     return st.session_state.category_colors[category]
 
+#Refactoring core helper functions
+def get_transactions_for_period(df, period_type: str, period_key: str) -> pd.DataFrame:
+    """
+    Filter transactions that occurred during a specific period.
+    
+    Args:
+        df: DataFrame with 'date' column in format 'dd/mm/yyyy'
+        period_type: 'monthly' | 'yearly' | 'alltime'
+        period_key: 'July 2025' | '2025' | 'All Time'
+    
+    Returns:
+        Filtered DataFrame of transactions matching the period
+    """
+    if df is None or len(df) == 0:
+        return pd.DataFrame()
+    
+    df_copy = df.copy()
+    
+    # Parse dates safely
+    df_copy['date'] = pd.to_datetime(df_copy['date'], format='%d/%m/%Y', errors='coerce')
+    
+    if period_type == 'alltime':
+        return df_copy
+    
+    elif period_type == 'yearly':
+        try:
+            year = int(period_key)
+            return df_copy[df_copy['date'].dt.year == year]
+        except (ValueError, TypeError):
+            return df_copy
+    
+    elif period_type == 'monthly':
+        try:
+            # Parse "July 2025" -> July, 2025
+            date_obj = datetime.strptime(period_key, '%B %Y')
+            return df_copy[
+                (df_copy['date'].dt.month == date_obj.month) &
+                (df_copy['date'].dt.year == date_obj.year)
+            ]
+        except (ValueError, TypeError):
+            return df_copy
+    
+    return df_copy
+
+
+def get_spending_for_period(df, period_type: str, period_key: str, category: str = None) -> float:
+    """
+    Get total spending for a period, optionally filtered by category.
+    
+    Args:
+        df: DataFrame with spending data
+        period_type: 'monthly' | 'yearly' | 'alltime'
+        period_key: Period identifier (e.g., 'July 2025', '2025', 'All Time')
+        category: Optional category name to filter by
+    
+    Returns:
+        Total amount spent as float
+    """
+    period_df = get_transactions_for_period(df, period_type, period_key)
+    
+    if period_df.empty:
+        return 0.0
+    
+    if category:
+        period_df = period_df[period_df['category'] == category]
+    
+    return float(period_df['amount'].sum())
+
+
+def get_target_progress(df, period_type: str, period_key: str, targets: dict) -> dict:
+    """
+    Calculate progress towards targets for a period.
+    
+    Args:
+        df: DataFrame with spending data
+        period_type: 'monthly' | 'yearly' | 'alltime'
+        period_key: Period identifier
+        targets: Dict of {category: target_amount}
+    
+    Returns:
+        Dict of {category: {'spent': X, 'target': Y, 'remaining': Z, 'percent': P, 'over_budget': bool}}
+    """
+    progress = {}
+    
+    for category, target_amount in targets.items():
+        spent = get_spending_for_period(df, period_type, period_key, category)
+        remaining = max(0, target_amount - spent)
+        percent = (spent / target_amount * 100) if target_amount > 0 else 0
+        
+        progress[category] = {
+            'spent': round(spent, 2),
+            'target': round(target_amount, 2),
+            'remaining': round(remaining, 2),
+            'percent': min(100, round(percent, 1)),
+            'over_budget': spent > target_amount
+        }
+    
+    return progress
+
 
 # Smart CSV parser using AI to identify columns
 def parse_csv_with_ai(uploaded_file):
@@ -1867,3 +1966,148 @@ Always call the function when setting/updating targets - don't just describe wha
                     st.error(f"Error: {str(e)}")
             else:
                 st.error("OpenAI API key not configured")
+
+# DEBUG: Test helper functions
+with st.expander("🧪 Debug: Test Helper Functions", expanded=False):
+    st.warning("⚠️ This section is for development only")
+    
+    if st.session_state.transactions is not None and st.session_state.categorized:
+        df = st.session_state.transactions
+        
+        st.markdown("### Test Data")
+        st.write(f"Loaded {len(df)} transactions")
+        st.write(f"Columns: {df.columns.tolist()}")
+        
+        # Test 1: get_transactions_for_period
+        st.markdown("### Test 1: get_transactions_for_period()")
+        
+        col_t1_1, col_t1_2, col_t1_3 = st.columns(3)
+        
+        with col_t1_1:
+            period_type_test = st.selectbox(
+                "Period type",
+                ["monthly", "yearly", "alltime"],
+                key="test_period_type"
+            )
+        
+        with col_t1_2:
+            if period_type_test == "monthly":
+                period_key_test = st.text_input(
+                    "Period key",
+                    "July 2025",
+                    key="test_period_key"
+                )
+            elif period_type_test == "yearly":
+                period_key_test = st.text_input(
+                    "Period key",
+                    "2025",
+                    key="test_period_key"
+                )
+            else:
+                period_key_test = "All Time"
+        
+        with col_t1_3:
+            if st.button("🔍 Test", key="test_get_transactions"):
+                filtered_df = get_transactions_for_period(df, period_type_test, period_key_test)
+                st.success(f"✅ Returned {len(filtered_df)} transactions")
+                st.dataframe(filtered_df.head(), use_container_width=True)
+        
+        st.divider()
+        
+        # Test 2: get_spending_for_period
+        st.markdown("### Test 2: get_spending_for_period()")
+        
+        col_t2_1, col_t2_2, col_t2_3 = st.columns(3)
+        
+        with col_t2_1:
+            period_type_test2 = st.selectbox(
+                "Period type",
+                ["monthly", "yearly", "alltime"],
+                key="test_period_type2"
+            )
+        
+        with col_t2_2:
+            if period_type_test2 == "monthly":
+                period_key_test2 = st.text_input(
+                    "Period key",
+                    "July 2025",
+                    key="test_period_key2"
+                )
+            elif period_type_test2 == "yearly":
+                period_key_test2 = st.text_input(
+                    "Period key",
+                    "2025",
+                    key="test_period_key2"
+                )
+            else:
+                period_key_test2 = "All Time"
+        
+        with col_t2_3:
+            category_test = st.selectbox(
+                "Category (optional)",
+                ["All"] + df['category'].unique().tolist() if 'category' in df.columns else ["All"],
+                key="test_category"
+            )
+        
+        if st.button("🔍 Test", key="test_get_spending"):
+            cat = None if category_test == "All" else category_test
+            spending = get_spending_for_period(df, period_type_test2, period_key_test2, cat)
+            st.success(f"✅ Total spending: £{spending:.2f}")
+        
+        st.divider()
+        
+        # Test 3: get_target_progress
+        st.markdown("### Test 3: get_target_progress()")
+        
+        col_t3_1, col_t3_2 = st.columns(2)
+        
+        with col_t3_1:
+            period_type_test3 = st.selectbox(
+                "Period type",
+                ["monthly", "yearly", "alltime"],
+                key="test_period_type3"
+            )
+        
+        with col_t3_2:
+            if period_type_test3 == "monthly":
+                period_key_test3 = st.text_input(
+                    "Period key",
+                    "July 2025",
+                    key="test_period_key3"
+                )
+            elif period_type_test3 == "yearly":
+                period_key_test3 = st.text_input(
+                    "Period key",
+                    "2025",
+                    key="test_period_key3"
+                )
+            else:
+                period_key_test3 = "All Time"
+        
+        # Create test targets
+        test_targets = {
+            "Groceries": 300,
+            "Transport": 150,
+            "Entertainment": 100
+        }
+        
+        if st.button("🔍 Test Progress", key="test_get_progress"):
+            progress = get_target_progress(df, period_type_test3, period_key_test3, test_targets)
+            st.success("✅ Target progress calculated:")
+            
+            # Display as a nice table
+            progress_df = pd.DataFrame([
+                {
+                    "Category": cat,
+                    "Spent": f"£{data['spent']:.2f}",
+                    "Target": f"£{data['target']:.2f}",
+                    "Remaining": f"£{data['remaining']:.2f}",
+                    "Progress": f"{data['percent']:.1f}%",
+                    "Over Budget": "⚠️ YES" if data['over_budget'] else "✅ No"
+                }
+                for cat, data in progress.items()
+            ])
+            
+            st.dataframe(progress_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("💡 Upload and categorize transactions first to test helper functions")
