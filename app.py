@@ -264,6 +264,8 @@ def save_project(project_name, transactions_df):
             'created_at': pd.Timestamp.now().isoformat(),
             'total_transactions': len(transactions_df),
             'targets': st.session_state.targets,
+            'custom_categories': st.session_state.get('custom_categories', []),
+            'category_colors': st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy()),
             'chat_messages': st.session_state.get('chat_messages', [])
         }
         
@@ -293,6 +295,8 @@ def load_project(project_name):
             'alltime': {}
         }
         st.session_state.chat_messages = []
+        st.session_state.custom_categories = []
+        st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
         
         # Load project-specific targets if they exist
         if 'targets' in data:
@@ -301,6 +305,14 @@ def load_project(project_name):
         # Load project-specific chat history if it exists
         if 'chat_messages' in data:
             st.session_state.chat_messages = data['chat_messages']
+        
+        # Load project-specific custom categories if they exist
+        if 'custom_categories' in data:
+            st.session_state.custom_categories = data['custom_categories']
+        
+        # Load project-specific category colors if they exist
+        if 'category_colors' in data:
+            st.session_state.category_colors = data['category_colors']
         
         return df, None
     except Exception as e:
@@ -381,9 +393,11 @@ def save_targets_to_project(project_name):
         with open(filename, 'r') as f:
             data = json.load(f)
         
-        # Update targets and chat history
+        # Update targets, chat history, categories, and colors
         data['targets'] = st.session_state.targets
         data['chat_messages'] = st.session_state.get('chat_messages', [])
+        data['custom_categories'] = st.session_state.get('custom_categories', [])
+        data['category_colors'] = st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy())
         
         # Write back to file
         with open(filename, 'w') as f:
@@ -777,6 +791,7 @@ if st.session_state.current_page == "summarize":
                     st.session_state.categorized = True
                     st.session_state.analyzed = False
                     st.session_state.summary = None
+                    # Chat messages are already loaded by load_project() function
                     st.rerun()
         
         with col_proj2:
@@ -1424,7 +1439,8 @@ BALANCE TRACKING:
                             balance_info = ""
 
                     # Build the system message with data context
-                    system_message = f"""You are a helpful financial coaching assistant analyzing spending data{f' for project: {st.session_state.current_project}' if st.session_state.current_project else ''}.
+                    project_context = f" for project: '{st.session_state.current_project}'" if st.session_state.current_project and st.session_state.current_project != "Current Session" else ""
+                    system_message = f"""You are a helpful financial coaching assistant analyzing spending data{project_context}.
 
 DATA SUMMARY:
 - Total spent: £{total:.2f}
