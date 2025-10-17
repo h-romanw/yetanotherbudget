@@ -1344,17 +1344,32 @@ elif st.session_state.current_page == "analyze":
                     daily_spending = df_with_dates.groupby(
                         'date')['amount'].sum().sort_values(ascending=False)
 
-                    # Create transaction list for AI
-                    transactions_list = []
-                    for _, row in df.iterrows():
-                        if 'balance' in df.columns:
-                            transactions_list.append(
-                                f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']}) [Balance: £{row['balance']:.2f}]"
-                            )
-                        else:
-                            transactions_list.append(
-                                f"{row['date']}: {row['payee']} - £{row['amount']:.2f} ({row['category']})"
-                            )
+                    # Create detailed spending analysis by category and date
+                    category_details = []
+                    for category in category_summary.keys():
+                        cat_df = df_with_dates[df_with_dates['category'] == category]
+                        cat_total = cat_df['amount'].sum()
+                        cat_avg = cat_df['amount'].mean()
+                        cat_max = cat_df['amount'].max()
+                        
+                        # Get top 3 spends in this category
+                        top_spends = cat_df.nlargest(3, 'amount')[['date', 'payee', 'amount']]
+                        top_spends_text = "; ".join([
+                            f"{row['date'].strftime('%d/%m/%Y')}: {row['payee']} £{row['amount']:.2f}"
+                            for _, row in top_spends.iterrows()
+                        ])
+                        
+                        category_details.append(
+                            f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max £{cat_max:.2f} | Top spends: {top_spends_text}"
+                        )
+                    
+                    # Get spending by month/week
+                    df_with_dates['month'] = df_with_dates['date'].dt.to_period('M')
+                    monthly_spending = df_with_dates.groupby('month')['amount'].sum().sort_values(ascending=False)
+                    monthly_text = "\n".join([
+                        f"- {period}: £{amount:.2f}"
+                        for period, amount in monthly_spending.head(6).items()
+                    ])
                     
                     # Add balance info if available
                     balance_info = ""
@@ -1376,18 +1391,20 @@ BALANCE TRACKING:
 SUMMARY:
 - Total spent: £{total:.2f}
 - Number of transactions: {len(df)}
-- Breakdown by category: {', '.join([f'{k}: £{v:.2f}' for k, v in category_summary.items()])}
+- Date range: {df_with_dates['date'].min().strftime('%d/%m/%Y')} to {df_with_dates['date'].max().strftime('%d/%m/%Y')}
 {balance_info}
+SPENDING BY CATEGORY (with top spends):
+{chr(10).join(category_details)}
+
+MONTHLY SPENDING:
+{monthly_text}
+
 DAILY SPENDING (top 5 days):
 {chr(10).join([f'- {date.strftime("%d/%m/%Y")}: £{amount:.2f}' for date, amount in daily_spending.head(5).items()])}
 
-ALL TRANSACTIONS:
-{chr(10).join(transactions_list[:20])}
-{"..." if len(transactions_list) > 20 else ""}
-
 User question: {user_question}
 
-Provide a helpful, specific response using the transaction data above. You can analyze dates, identify patterns, compare days/categories, track balance changes, etc."""
+Provide a helpful, specific response using the transaction data above. You have complete spending information organized by category, time period, and top spends. You can answer questions about specific categories, timeframes, biggest spends, patterns, etc."""
 
                     if client:
                         try:
