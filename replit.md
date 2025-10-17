@@ -4,6 +4,16 @@
 
 Yet Another Budget is a personal finance application that analyzes spending patterns using AI. The application allows users to import financial data, view transactions, and understand their spending habits through AI-powered categorization and insights.
 
+## Recent Changes
+
+**2025-10-16: Project-Level Isolation & AI Improvements**
+- **Chat History Persistence**: Chat messages now saved and loaded with each project
+- **Complete Project Isolation**: Targets and chat history fully reset when switching projects (no data bleeding)
+- **AI Yearly Target Generation**: Added explicit monthly-to-yearly calculation examples (e.g., £300/month = £3,600/year)
+- **Set Targets Always Available**: Removed requirement for transaction data - Set Targets accessible anytime
+- **AI Works Without Data**: AI chat provides budgeting advice even when no transaction data exists
+- Automatic saving of targets and chat to project files (both manual saves and AI updates)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
