@@ -1352,24 +1352,47 @@ elif st.session_state.current_page == "analyze":
                         cat_avg = cat_df['amount'].mean()
                         cat_max = cat_df['amount'].max()
                         
-                        # Get top 3 spends in this category
-                        top_spends = cat_df.nlargest(3, 'amount')[['date', 'payee', 'amount']]
+                        # Get top 5 spends in this category (increased from 3)
+                        top_spends = cat_df.nlargest(5, 'amount')[['date', 'payee', 'amount']]
                         top_spends_text = "; ".join([
                             f"{row['date'].strftime('%d/%m/%Y')}: {row['payee']} £{row['amount']:.2f}"
                             for _, row in top_spends.iterrows()
                         ])
                         
                         category_details.append(
-                            f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max £{cat_max:.2f} | Top spends: {top_spends_text}"
+                            f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max £{cat_max:.2f} | Top 5 spends: {top_spends_text}"
                         )
                     
-                    # Get spending by month/week
+                    # Get spending by month with detailed breakdown by category
                     df_with_dates['month'] = df_with_dates['date'].dt.to_period('M')
+                    df_with_dates['month_name'] = df_with_dates['date'].dt.strftime('%B %Y')
+                    
+                    # Monthly spending totals
                     monthly_spending = df_with_dates.groupby('month')['amount'].sum().sort_values(ascending=False)
-                    monthly_text = "\n".join([
-                        f"- {period}: £{amount:.2f}"
-                        for period, amount in monthly_spending.head(6).items()
-                    ])
+                    
+                    # Detailed monthly breakdown by category
+                    monthly_category_details = []
+                    for period in monthly_spending.head(12).index:
+                        month_df = df_with_dates[df_with_dates['month'] == period]
+                        month_name = month_df['month_name'].iloc[0]
+                        month_total = month_df['amount'].sum()
+                        
+                        # Get category breakdown for this month
+                        month_cats = month_df.groupby('category')['amount'].sum().sort_values(ascending=False)
+                        cat_breakdown = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in month_cats.head(5).items()])
+                        
+                        # Get top 3 transactions for this month
+                        top_month_txns = month_df.nlargest(3, 'amount')[['date', 'payee', 'category', 'amount']]
+                        top_txns_text = "; ".join([
+                            f"{row['payee']} (£{row['amount']:.2f}, {row['category']})"
+                            for _, row in top_month_txns.iterrows()
+                        ])
+                        
+                        monthly_category_details.append(
+                            f"- {month_name}: £{month_total:.2f} total | Categories: {cat_breakdown} | Top spends: {top_txns_text}"
+                        )
+                    
+                    monthly_text = "\n".join(monthly_category_details)
                     
                     # Add balance info if available
                     balance_info = ""
@@ -1393,10 +1416,10 @@ SUMMARY:
 - Number of transactions: {len(df)}
 - Date range: {df_with_dates['date'].min().strftime('%d/%m/%Y')} to {df_with_dates['date'].max().strftime('%d/%m/%Y')}
 {balance_info}
-SPENDING BY CATEGORY (with top spends):
+SPENDING BY CATEGORY (with top 5 spends each):
 {chr(10).join(category_details)}
 
-MONTHLY SPENDING:
+DETAILED MONTHLY BREAKDOWN (with categories and top spends per month):
 {monthly_text}
 
 DAILY SPENDING (top 5 days):
@@ -1404,7 +1427,12 @@ DAILY SPENDING (top 5 days):
 
 User question: {user_question}
 
-Provide a helpful, specific response using the transaction data above. You have complete spending information organized by category, time period, and top spends. You can answer questions about specific categories, timeframes, biggest spends, patterns, etc."""
+Provide a helpful, specific response using the transaction data above. You have complete spending information organized by:
+- Overall category totals with top 5 spends per category
+- Monthly breakdowns showing category spending and top transactions for each month
+- Daily spending patterns
+
+You can answer questions about specific months (e.g., "July"), specific categories, biggest spends in any time period, and patterns. When asked about a specific month, use the DETAILED MONTHLY BREAKDOWN section to find that month's data."""
 
                     if client:
                         try:
