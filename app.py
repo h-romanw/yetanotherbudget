@@ -1638,17 +1638,9 @@ elif st.session_state.current_page == "targets":
 
             with chat_messages_container:
                 if st.session_state.chat_messages:
-                    for idx, msg in enumerate(st.session_state.chat_messages):
-                        if msg['role'] == 'user':
-                            with st.chat_message("user"):
-                                st.markdown(msg['content'])
-                        else:
-                            # AI message with collapsible expander
-                            with st.chat_message("assistant"):
-                                with st.expander(
-                                        "View response",
-                                        expanded=(idx == len(st.session_state.chat_messages) - 1)):
-                                    st.markdown(msg['content'])
+                    for msg in st.session_state.chat_messages:
+                        with st.chat_message(msg['role']):
+                            st.markdown(msg['content'])
                 else:
                     st.info("Ask me about your spending or set budgets!")
 
@@ -1743,9 +1735,10 @@ elif st.session_state.current_page == "targets":
             }
             
             if client:
-                try:
-                    # Build comprehensive system prompt for financial coaching
-                    system_prompt = """You are an expert financial coach and budgeting assistant. Your role is to:
+                with st.spinner("Thinking..."):
+                    try:
+                        # Build comprehensive system prompt for financial coaching
+                        system_prompt = """You are an expert financial coach and budgeting assistant. Your role is to:
 
 1. **Have Natural Conversations**: Engage in friendly, helpful conversations about personal finance, budgeting, and spending habits.
 
@@ -1780,119 +1773,130 @@ Remember:
 - Ask clarifying questions if needed
 - Keep responses concise but informative"""
 
-                    # Build messages array with full conversation history
-                    messages = [{"role": "system", "content": system_prompt}]
-                    
-                    # Add data context as a system message
-                    messages.append({
-                        "role": "system",
-                        "content": f"**CURRENT DATA CONTEXT**\n\n{data_context}"
-                    })
-                    
-                    # Add all previous conversation messages (excluding the latest user question which is already appended)
-                    for msg in st.session_state.chat_messages[:-1]:
+                        # Build messages array with full conversation history
+                        messages = [{"role": "system", "content": system_prompt}]
+                        
+                        # Add data context as a system message
                         messages.append({
-                            "role": msg['role'],
-                            "content": msg['content']
+                            "role": "system",
+                            "content": f"**CURRENT DATA CONTEXT**\n\n{data_context}"
                         })
-                    
-                    # Add the current user question
-                    messages.append({
-                        "role": "user",
-                        "content": user_question
-                    })
-                    
-                    # Call OpenAI API with full conversation history
-                    response = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=messages,
-                        functions=[update_targets_function],
-                        function_call="auto",
-                        temperature=0.7,
-                        max_tokens=1500
-                    )
-                    
-                    response_message = response.choices[0].message
-                    ai_response = None
-                    
-                    # Check if AI wants to call a function to update targets
-                    if response_message.function_call:
-                        function_name = response_message.function_call.name
                         
-                        try:
-                            function_args = json.loads(response_message.function_call.arguments)
-                        except json.JSONDecodeError:
-                            ai_response = "I had trouble understanding that request. Could you please rephrase it?"
-                            function_args = None
+                        # Add all previous conversation messages (excluding the latest user question which is already appended)
+                        for msg in st.session_state.chat_messages[:-1]:
+                            messages.append({
+                                "role": msg['role'],
+                                "content": msg['content']
+                            })
                         
-                        if function_name == "update_targets" and function_args:
-                            # Extract targets from function arguments
-                            targets_to_update = None
+                        # Add the current user question
+                        messages.append({
+                            "role": "user",
+                            "content": user_question
+                        })
+                        
+                        # Call OpenAI API with full conversation history
+                        response = client.chat.completions.create(
+                            model="gpt-4o-mini",
+                            messages=messages,
+                            functions=[update_targets_function],
+                            function_call="auto",
+                            temperature=0.7,
+                            max_tokens=1500
+                        )
+                        
+                        response_message = response.choices[0].message
+                        ai_response = None
+                        
+                        # Check if AI wants to call a function to update targets
+                        if response_message.function_call:
+                            function_name = response_message.function_call.name
                             
-                            if 'targets' in function_args and isinstance(function_args['targets'], dict):
-                                targets_to_update = function_args['targets']
-                            elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
-                                # Handle case where AI returns dict directly
-                                targets_to_update = function_args
+                            try:
+                                function_args = json.loads(response_message.function_call.arguments)
+                            except json.JSONDecodeError:
+                                ai_response = "I had trouble understanding that request. Could you please rephrase it?"
+                                function_args = None
                             
-                            if targets_to_update:
-                                # Apply the target updates to session state
-                                period_key = st.session_state.current_target_period
-                                if period_key not in st.session_state.targets[st.session_state.target_period_type]:
-                                    st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+                            if function_name == "update_targets" and function_args:
+                                # Extract targets from function arguments
+                                targets_to_update = None
                                 
-                                # Update each target and clear widget cache
-                                for category, amount in targets_to_update.items():
-                                    st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
-                                    widget_key = f"target_{category}_{period_key}"
-                                    if widget_key in st.session_state:
-                                        del st.session_state[widget_key]
+                                if 'targets' in function_args and isinstance(function_args['targets'], dict):
+                                    targets_to_update = function_args['targets']
+                                elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
+                                    # Handle case where AI returns dict directly
+                                    targets_to_update = function_args
                                 
-                                # Persist to project file if available
-                                if st.session_state.current_project and st.session_state.current_project != "Current Session":
-                                    save_targets_to_project(st.session_state.current_project)
-                                
-                                # Generate a friendly confirmation response
-                                # Make another API call to get a conversational response about what was set
-                                followup_messages = messages + [{
-                                    "role": "assistant",
-                                    "content": None,
-                                    "function_call": {
+                                if targets_to_update:
+                                    # Apply the target updates to session state
+                                    period_key = st.session_state.current_target_period
+                                    if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                        st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+                                    
+                                    # Update each target and clear widget cache
+                                    for category, amount in targets_to_update.items():
+                                        st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                        widget_key = f"target_{category}_{period_key}"
+                                        if widget_key in st.session_state:
+                                            del st.session_state[widget_key]
+                                    
+                                    # Persist to project file if available
+                                    if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                                        save_targets_to_project(st.session_state.current_project)
+                                    
+                                    # Generate a friendly confirmation response
+                                    # Make another API call to get a conversational response about what was set
+                                    followup_messages = messages + [{
+                                        "role": "assistant",
+                                        "content": None,
+                                        "function_call": {
+                                            "name": "update_targets",
+                                            "arguments": json.dumps({"targets": targets_to_update})
+                                        }
+                                    }, {
+                                        "role": "function",
                                         "name": "update_targets",
-                                        "arguments": json.dumps({"targets": targets_to_update})
-                                    }
-                                }, {
-                                    "role": "function",
-                                    "name": "update_targets",
-                                    "content": f"Successfully updated targets: {', '.join([f'{cat}: £{amt:.2f}' for cat, amt in targets_to_update.items()])}"
-                                }]
-                                
-                                followup_response = client.chat.completions.create(
-                                    model="gpt-4o-mini",
-                                    messages=followup_messages,
-                                    temperature=0.7,
-                                    max_tokens=500
-                                )
-                                
-                                ai_response = followup_response.choices[0].message.content
-                                
-                                # Fallback if no response
-                                if not ai_response:
-                                    ai_response = f"Done! I've set your targets for {period_key}."
-                            else:
-                                ai_response = "I need specific category names and amounts to set targets. For example, try asking 'Set my Groceries to £300'."
-                    else:
-                        # Regular conversational response (no function call)
-                        ai_response = response_message.content if response_message.content else "I'm here to help with your budgeting questions!"
-                    
-                    # Add AI response to chat history
-                    st.session_state.chat_messages.append({
-                        'role': 'assistant',
-                        'content': ai_response
-                    })
-                    
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                                        "content": f"Successfully updated targets: {', '.join([f'{cat}: £{amt:.2f}' for cat, amt in targets_to_update.items()])}"
+                                    }]
+                                    
+                                    followup_response = client.chat.completions.create(
+                                        model="gpt-4o-mini",
+                                        messages=followup_messages,
+                                        temperature=0.7,
+                                        max_tokens=500
+                                    )
+                                    
+                                    ai_response = followup_response.choices[0].message.content
+                                    
+                                    # Fallback if no response
+                                    if not ai_response:
+                                        ai_response = f"Done! I've set your targets for {period_key}."
+                                else:
+                                    ai_response = "I need specific category names and amounts to set targets. For example, try asking 'Set my Groceries to £300'."
+                        else:
+                            # Regular conversational response (no function call)
+                            ai_response = response_message.content if response_message.content else "I'm here to help with your budgeting questions!"
+                        
+                        # Add AI response to chat history
+                        st.session_state.chat_messages.append({
+                            'role': 'assistant',
+                            'content': ai_response
+                        })
+                        
+                        st.rerun()
+                    except Exception as e:
+                        # Add error message to chat so conversation doesn't break
+                        error_msg = f"I encountered an error: {str(e)}\n\nPlease try again or rephrase your question."
+                        st.session_state.chat_messages.append({
+                            'role': 'assistant',
+                            'content': error_msg
+                        })
+                        st.rerun()
             else:
-                st.error("OpenAI API key not configured")
+                # No API key - add error to chat
+                st.session_state.chat_messages.append({
+                    'role': 'assistant',
+                    'content': "⚠️ OpenAI API key not configured. Please add your API key to use the AI assistant."
+                })
+                st.rerun()
