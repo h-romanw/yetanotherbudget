@@ -187,9 +187,45 @@
   "created_at": "2025-10-17T21:17:03.173630",
   "total_transactions": 26,
   "targets": {
-    "monthly": {},
-    "yearly": {},
+    "monthly": {
+      "October 2025": {
+        "Groceries": 40.0,
+        "Dining & Takeout": 0.0,
+        "Bills & Utilities": 0.0,
+        "Transport": 0.0,
+        "Shopping": 0.0,
+        "Entertainment": 0.0,
+        "Health & Fitness": 0.0,
+        "Travel": 0.0,
+        "Other": 0.0
+      }
+    },
+    "yearly": {
+      "2025": {
+        "Groceries": 70.0,
+        "Dining & Takeout": 0.0,
+        "Bills & Utilities": 0.0,
+        "Transport": 0.0,
+        "Shopping": 0.0,
+        "Entertainment": 0.0,
+        "Health & Fitness": 0.0,
+        "Travel": 0.0,
+        "Other": 0.0
+      }
+    },
     "alltime": {}
   },
-  "chat_messages": []
+  "chat_messages": [],
+  "custom_categories": [],
+  "category_colors": {
+    "Groceries": "#00D084",
+    "Dining & Takeout": "#FF9500",
+    "Bills & Utilities": "#B040D0",
+    "Transport": "#007AFF",
+    "Shopping": "#FF2D55",
+    "Entertainment": "#FF3B30",
+    "Health & Fitness": "#34C759",
+    "Travel": "#5856D6",
+    "Other": "#8E8E93"
+  }
 }
