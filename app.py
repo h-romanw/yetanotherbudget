@@ -685,6 +685,7 @@ with st.sidebar:
         st.session_state.summary = None
         st.session_state.current_project = None
         st.session_state.chat_messages = []
+        st.session_state.last_uploaded_file_id = None
         st.rerun()
 
     st.divider()
@@ -813,9 +814,19 @@ if st.session_state.current_page == "summarize":
         help="Upload any CSV bank statement - AI will automatically identify the columns",
         key="csv_uploader")
 
+    # Track if we've processed this file already
+    if 'last_uploaded_file_id' not in st.session_state:
+        st.session_state.last_uploaded_file_id = None
+
     if uploaded_file is not None:
-        with st.spinner("🤖 Analyzing CSV format..."):
-            df, error = parse_csv_with_ai(uploaded_file)
+        # Generate a unique ID for this file based on name and size
+        current_file_id = f"{uploaded_file.name}_{uploaded_file.size}"
+        
+        # Only process if this is a new file
+        if current_file_id != st.session_state.last_uploaded_file_id:
+            with st.spinner("🤖 Analyzing CSV format..."):
+                df, error = parse_csv_with_ai(uploaded_file)
+                st.session_state.last_uploaded_file_id = current_file_id
             
             if error:
                 st.error(f"❌ {error}")
