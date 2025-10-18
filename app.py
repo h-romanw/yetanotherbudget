@@ -582,6 +582,8 @@ def load_project(project_name):
             data = json.load(f)
         
         df = pd.DataFrame(data['transactions'])
+        # Clean any NaN values that might have been saved
+        df = df.fillna('')
         
         # Reset to clean state first to ensure project isolation
         st.session_state.targets = {
@@ -955,28 +957,226 @@ st.markdown("""
         background-color: #f5f5f5;
     }
 
-    /* Sidebar styling 
-    [data-testid="stSidebar"] {
-        background-color: #e2999b;
-        color: #000000;
-    } */
-
     /* Headers */
     h1, h2, h3 {
         color: #000000 !important;
     }
-    /* Inactive button */
-    .stButton>button[disabled] {
-        color: #000000 !important;
+    
+    /* ========================================
+       NAVIGATION BUTTONS
+       ======================================== */
+    
+    /* Remove all default button styling first */
+    .stButton>button {
+        border: none !important;
+        outline: none !important;
     }
-
-    /* Primary button */
-    .stButton>button[kind="primary"] {
-        background-color: #832632;
-        color: white;
+    
+    /* PRIMARY BUTTON - Active Page (Navigation) */
+    .stButton>button[kind="primary"],
+    [data-testid="stSidebar"] .stButton>button[kind="primary"] {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: #D7D7D7 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+        font-weight: 600 !important;
+        transition: transform 0.15s ease !important;
     }
-
-    /* Chat input send button icon */
+    
+    .stButton>button[kind="primary"]:hover,
+    .stButton>button[kind="primary"]:focus,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:hover,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:focus {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: #D7D7D7 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+    }
+    
+    .stButton>button[kind="primary"]:active,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* SECONDARY BUTTON - Inactive Page - Default State */
+    .stButton>button[kind="secondary"],
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"] {
+        background-color: #F1C8C8 !important;
+        background: #F1C8C8 !important;
+        color: #020202 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    /* SECONDARY BUTTON - Hover State Only (no sticky active state) */
+    .stButton>button[kind="secondary"]:hover,
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"]:hover {
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
+        color: #F8F8F8 !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+    }
+    
+    /* SECONDARY BUTTON - Active/Click State (with bounce) */
+    .stButton>button[kind="secondary"]:active,
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"]:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* ========================================
+       FILE UPLOADER (Browse Files button)
+       ======================================== */
+    
+    /* File uploader "Browse files" button - same style as secondary nav buttons */
+    [data-testid="stFileUploadDropzone"] button {
+        background-color: #F1C8C8 !important;
+        background: #F1C8C8 !important;
+        color: #020202 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    [data-testid="stFileUploadDropzone"] button:hover {
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
+        color: #F8F8F8 !important;
+    }
+    
+    [data-testid="stFileUploadDropzone"] button:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* ========================================
+       IMPORT NEW DATA FILE UPLOADER (White/Cream background)
+       ======================================== */
+    
+    /* Style the file uploader label to look like other nav buttons */
+    [data-testid="stSidebar"] .import-button-wrapper label {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        display: block !important;
+        text-align: center !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper label:hover {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper label:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* Hide the actual file input button, keep only the styled label */
+    [data-testid="stSidebar"] .import-button-wrapper button {
+        display: none !important;
+    }
+    
+    /* Style the file uploader container */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploader"] {
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploader"] > div {
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    /* Style the Browse files button inside the wrapper */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+        display: block !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button:hover {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* Hide the drag and drop text */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] > div > div:first-child {
+        display: none !important;
+    }
+    
+    /* Make the whole dropzone look like a button */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    
+    /* ========================================
+       DISABLED BUTTONS
+       ======================================== */
+    
+    .stButton>button:disabled,
+    [data-testid="stSidebar"] .stButton>button:disabled {
+        background-color: #D7D7D7 !important;
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+        cursor: not-allowed !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton>button:disabled:hover,
+    [data-testid="stSidebar"] .stButton>button:disabled:hover {
+        background-color: #D7D7D7 !important;
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        transform: none !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+    }
+    
+    .stButton>button:disabled:hover {
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        box-shadow: none !important;
+        transform: none !important;
+        cursor: not-allowed !important;
+    }
+    
+    /* ========================================
+       CHAT STYLING
+       ======================================== */
+            
     .stChatInput button svg {
         fill: white !important;
     }
@@ -985,7 +1185,6 @@ st.markdown("""
         fill: white !important;
     }
 
-    /* Reduce chat message text size */
     .stChatMessage {
         font-size: 14px !important;
     }
@@ -994,9 +1193,8 @@ st.markdown("""
         font-size: 14px !important;
     }
 
-    /* Burgundy background for user messages */
     .stChatMessage[data-testid="chat-message-user"] div:last-child div div div {
-        background-color: #832632 !important; /* Burgundy */
+        background-color: #832632 !important;
         color: white !important;
     }
 
@@ -1082,19 +1280,53 @@ with st.sidebar:
 
     st.divider()
 
-    # Import button at bottom
-    if st.button("📤 Import New Data",
-                 use_container_width=True,
-                 type="secondary",
-                 help="Clear current data and start fresh"):
-        st.session_state.transactions = None
-        st.session_state.categorized = False
-        st.session_state.analyzed = False
-        st.session_state.summary = None
-        st.session_state.current_project = None
-        st.session_state.chat_messages = []
-        st.session_state.last_uploaded_file_id = None
-        st.rerun()
+    # Import file uploader in sidebar - directly opens file browser
+    st.markdown('<div class="import-button-wrapper">', unsafe_allow_html=True)
+    sidebar_upload = st.file_uploader(
+        "📤 Import New Data",
+        type=['csv'],
+        help="Upload CSV to add data to current project or start new",
+        key="sidebar_csv_uploader",
+        label_visibility="visible")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Process sidebar upload
+    if sidebar_upload is not None:
+        # Generate a unique ID for this file
+        sidebar_file_id = f"sidebar_{sidebar_upload.name}_{sidebar_upload.size}"
+        
+        # Only process if this is a new file
+        if 'last_sidebar_upload_id' not in st.session_state:
+            st.session_state.last_sidebar_upload_id = None
+            
+        if sidebar_file_id != st.session_state.last_sidebar_upload_id:
+            with st.spinner("🤖 Analyzing CSV format..."):
+                df, error = parse_csv_with_ai(sidebar_upload)
+                st.session_state.last_sidebar_upload_id = sidebar_file_id
+            
+            if error:
+                st.error(f"❌ {error}")
+            elif df is not None:
+                # If a project is loaded, append to it
+                if st.session_state.current_project:
+                    combined_df, append_error = append_to_project(st.session_state.current_project, df)
+                    if append_error:
+                        st.error(f"❌ {append_error}")
+                    else:
+                        st.success(f"✅ Added {len(df)} new transactions")
+                        # Clean NaN values before storing
+                        combined_df = combined_df.fillna('')
+                        st.session_state.transactions = combined_df
+                        st.session_state.categorized = True
+                        st.session_state.current_page = "summarize"
+                        st.rerun()
+                else:
+                    st.success(f"✅ Parsed {len(df)} transactions")
+                    # Clean NaN values before storing
+                    df = df.fillna('')
+                    st.session_state.transactions = df
+                    st.session_state.current_page = "summarize"
+                    st.rerun()
 
     st.divider()
 
@@ -1366,12 +1598,16 @@ if st.session_state.current_page == "summarize":
                     else:
                         st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
                                   (" (with balance tracking)" if 'balance' in df.columns else ""))
+                        # Clean NaN values before storing
+                        combined_df = combined_df.fillna('')
                         st.session_state.transactions = combined_df
                         st.session_state.categorized = True
                         st.rerun()
                 else:
                     st.success(f"✅ Successfully parsed {len(df)} transactions" + 
                               (" (with balance tracking)" if 'balance' in df.columns else ""))
+                    # Clean NaN values before storing
+                    df = df.fillna('')
                     st.session_state.transactions = df
                     st.rerun()
     
@@ -1429,9 +1665,12 @@ if st.session_state.current_page == "summarize":
                 "Review the AI categorization. You can edit categories or add custom ones in the sidebar."
             )
 
+            # Clean any NaN values before displaying in data editor
+            df_clean = df.fillna('')
+            
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
-                df,
+                df_clean,
                 column_config={
                     "category":
                     st.column_config.SelectboxColumn(
@@ -1448,7 +1687,7 @@ if st.session_state.current_page == "summarize":
                 key="transaction_editor")
 
             # Update session state if data was edited
-            if not edited_df.equals(df):
+            if not edited_df.equals(df_clean):
                 st.session_state.transactions = edited_df
                 # Sync any new categories from the dataframe
                 sync_categories_from_dataframe(edited_df)
