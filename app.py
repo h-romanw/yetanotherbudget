@@ -70,6 +70,35 @@ def get_all_categories():
     return CATEGORIES + st.session_state.get('custom_categories', [])
 
 
+def sync_categories_from_dataframe(df):
+    """Detect and add any categories from the DataFrame that aren't in the category lists"""
+    if df is None or 'category' not in df.columns:
+        return
+    
+    # Get unique categories from the DataFrame
+    df_categories = df['category'].unique().tolist()
+    
+    # Get current category lists
+    all_current = get_all_categories()
+    
+    # Find categories in DataFrame that aren't registered
+    new_categories = []
+    for cat in df_categories:
+        if cat and cat not in all_current:
+            new_categories.append(cat)
+    
+    # Add new categories to custom categories list
+    if new_categories:
+        if 'custom_categories' not in st.session_state:
+            st.session_state.custom_categories = []
+        
+        for cat in new_categories:
+            if cat not in st.session_state.custom_categories:
+                st.session_state.custom_categories.append(cat)
+                # Auto-assign color
+                assign_color_to_category(cat)
+
+
 def assign_color_to_category(category):
     """Auto-assign a color to a new category"""
     if 'category_colors' not in st.session_state:
@@ -477,6 +506,9 @@ def load_project(project_name):
         if 'category_colors' in data:
             st.session_state.category_colors = data['category_colors']
         
+        # Sync categories from DataFrame (in case manual edits added new ones)
+        sync_categories_from_dataframe(df)
+        
         return df, None
     except Exception as e:
         return None, f"Error loading project: {str(e)}"
@@ -532,6 +564,9 @@ def append_to_project(project_name, new_transactions_df):
         
         # Remove duplicates based on date, payee, and amount
         combined_df = combined_df.drop_duplicates(subset=['date', 'payee', 'amount'], keep='first')
+        
+        # Sync categories from the combined dataframe
+        sync_categories_from_dataframe(combined_df)
         
         # Save back to project
         success, result = save_project(project_name, combined_df)
@@ -1073,6 +1108,8 @@ if st.session_state.current_page == "summarize":
                     if categorized_df is not None:
                         st.session_state.transactions = categorized_df
                         st.session_state.categorized = True
+                        # Sync any new categories
+                        sync_categories_from_dataframe(categorized_df)
                         st.rerun()
 
         else:
@@ -1103,6 +1140,8 @@ if st.session_state.current_page == "summarize":
             # Update session state if data was edited
             if not edited_df.equals(df):
                 st.session_state.transactions = edited_df
+                # Sync any new categories from the dataframe
+                sync_categories_from_dataframe(edited_df)
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
                 st.session_state.summary = None
@@ -1113,6 +1152,8 @@ if st.session_state.current_page == "summarize":
                     categorized_df = categorize_transactions(edited_df.copy())
                     if categorized_df is not None:
                         st.session_state.transactions = categorized_df
+                        # Sync any new categories
+                        sync_categories_from_dataframe(categorized_df)
                         st.session_state.analyzed = False
                         st.session_state.summary = None
                         st.success("✅ Transactions re-categorized!")

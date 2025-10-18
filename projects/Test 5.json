@@ -11,7 +11,7 @@
       "date": "11/10/2025",
       "payee": "AMAZON MARKETPLACE",
       "amount": 89.99,
-      "category": "Shopping"
+      "category": "Pet Care"
     },
     {
       "date": "10/10/2025",
@@ -122,7 +122,7 @@
       "category": "Bills & Utilities"
     }
   ],
-  "created_at": "2025-10-18T15:32:48.224878",
+  "created_at": "2025-10-18T16:01:09.088934",
   "total_transactions": 20,
   "targets": {
     "monthly": {
@@ -144,19 +144,22 @@
     "yearly": {
       "2025": {
         "Groceries": 3000.0,
-        "Dining & Takeout": 0.0,
-        "Bills & Utilities": 0.0,
+        "Dining & Takeout": 500.0,
+        "Bills & Utilities": 1800.0,
         "Transport": 2000.0,
-        "Shopping": 0.0,
-        "Entertainment": 0.0,
-        "Health & Fitness": 0.0,
+        "Shopping": 150.0,
+        "Entertainment": 300.0,
+        "Health & Fitness": 200.0,
         "Travel": 0.0,
-        "Other": 0.0
+        "Other": 0.0,
+        "Pet Care": 0.0
       }
     },
     "alltime": {}
   },
-  "custom_categories": [],
+  "custom_categories": [
+    "Pet Care"
+  ],
   "category_colors": {
     "Groceries": "#00D084",
     "Dining & Takeout": "#FF9500",
@@ -166,7 +169,8 @@
     "Entertainment": "#FF3B30",
     "Health & Fitness": "#34C759",
     "Travel": "#5856D6",
-    "Other": "#8E8E93"
+    "Other": "#8E8E93",
+    "Pet Care": "#FF6B6B"
   },
   "chat_messages": []
 }
