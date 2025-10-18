@@ -11,7 +11,7 @@
       "date": "11/10/2025",
       "payee": "AMAZON MARKETPLACE",
       "amount": 89.99,
-      "category": "Pet Care"
+      "category": "Shopping"
     },
     {
       "date": "10/10/2025",
@@ -117,12 +117,12 @@
     },
     {
       "date": "23/09/2025",
-      "payee": "COUNCIL TAX",
+      "payee": "Thomann",
       "amount": 180.0,
-      "category": "Bills & Utilities"
+      "category": "Guitar"
     }
   ],
-  "created_at": "2025-10-18T16:01:09.088934",
+  "created_at": "2025-10-18T17:40:52.217988",
   "total_transactions": 20,
   "targets": {
     "monthly": {
@@ -152,13 +152,13 @@
         "Health & Fitness": 200.0,
         "Travel": 0.0,
         "Other": 0.0,
-        "Pet Care": 0.0
+        "Guitar": 0.0
       }
     },
     "alltime": {}
   },
   "custom_categories": [
-    "Pet Care"
+    "Guitar"
   ],
   "category_colors": {
     "Groceries": "#00D084",
@@ -170,7 +170,7 @@
     "Health & Fitness": "#34C759",
     "Travel": "#5856D6",
     "Other": "#8E8E93",
-    "Pet Care": "#FF6B6B"
+    "Guitar": "#FF6B6B"
   },
   "chat_messages": []
 }

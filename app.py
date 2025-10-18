@@ -625,6 +625,81 @@ def update_targets_and_save(period_type, period_key, category, amount):
         return False
 
 
+def rename_category(old_name, new_name):
+    """
+    Rename a category across all data structures:
+    1. custom_categories list
+    2. category_colors dict
+    3. transactions DataFrame
+    4. targets (all period types)
+    5. Save to current project
+    
+    Returns: (success: bool, message: str, affected_counts: dict)
+    """
+    try:
+        # Validate new name
+        if not new_name or not new_name.strip():
+            return False, "Category name cannot be empty", {}
+        
+        new_name = new_name.strip().title()
+        
+        # Check if new name already exists (case-insensitive)
+        all_cats = get_all_categories()
+        if new_name.lower() in [c.lower() for c in all_cats if c.lower() != old_name.lower()]:
+            return False, f"Category '{new_name}' already exists", {}
+        
+        # Track what was affected
+        affected = {
+            'transactions': 0,
+            'targets': 0,
+            'custom_categories': False,
+            'colors': False
+        }
+        
+        # 1. Update custom_categories list
+        if old_name in st.session_state.custom_categories:
+            idx = st.session_state.custom_categories.index(old_name)
+            st.session_state.custom_categories[idx] = new_name
+            affected['custom_categories'] = True
+        
+        # 2. Update category_colors dict
+        if old_name in st.session_state.category_colors:
+            st.session_state.category_colors[new_name] = st.session_state.category_colors.pop(old_name)
+            affected['colors'] = True
+        
+        # 3. Update transactions DataFrame
+        if st.session_state.transactions is not None and 'category' in st.session_state.transactions.columns:
+            mask = st.session_state.transactions['category'] == old_name
+            affected['transactions'] = mask.sum()
+            st.session_state.transactions.loc[mask, 'category'] = new_name
+        
+        # 4. Update targets (all period types)
+        for period_type in ['monthly', 'yearly', 'alltime']:
+            for period_key, period_targets in st.session_state.targets[period_type].items():
+                if old_name in period_targets:
+                    period_targets[new_name] = period_targets.pop(old_name)
+                    affected['targets'] += 1
+        
+        # 5. Clear any widget states that might reference the old category name
+        # (This prevents issues with input fields on Page 3)
+        keys_to_delete = [key for key in st.session_state.keys() if old_name in str(key)]
+        for key in keys_to_delete:
+            if key.startswith('target_') or key.startswith('rename_') or key.startswith('delete_'):
+                del st.session_state[key]
+        
+        # 6. Save to current project
+        if st.session_state.current_project and st.session_state.current_project != "Current Session":
+            if st.session_state.transactions is not None:
+                success, error = save_project(st.session_state.current_project, st.session_state.transactions)
+                if not success:
+                    return False, f"Failed to save changes: {error}", affected
+        
+        return True, f"Successfully renamed '{old_name}' to '{new_name}'", affected
+        
+    except Exception as e:
+        return False, f"Error renaming category: {str(e)}", {}
+
+
 # AI categorization function (categorization only - no summary)
 def categorize_transactions(df):
     """Batch categorize transactions using AI"""
@@ -913,38 +988,103 @@ with st.sidebar:
     st.divider()
 
     # Custom categories section
-    st.markdown("### 🏷️ Custom Categories")
-
-    # Show existing custom categories
-    if st.session_state.custom_categories:
-        st.caption("Your custom categories:")
-        for cat in st.session_state.custom_categories:
-            st.markdown(f"• {cat}")
-    else:
-        st.caption("No custom categories yet")
-
-    # Add new category
-    new_category = st.text_input("New category name",
-                                 key="new_category_input",
-                                 placeholder="e.g., Pet Care")
-
-    if st.button("➕ Add Category", use_container_width=True):
-        if new_category and new_category.strip():
-            # Clean the category name
-            clean_name = new_category.strip().title()
-
-            # Check if it already exists (case-insensitive)
-            all_cats = get_all_categories()
-            if clean_name.lower() not in [c.lower() for c in all_cats]:
-                st.session_state.custom_categories.append(clean_name)
-                # Auto-assign a color to the new category
-                color = assign_color_to_category(clean_name)
-                st.success(f"✅ Added '{clean_name}' with color {color}")
-                st.rerun()
-            else:
-                st.error(f"❌ Category '{clean_name}' already exists")
+    with st.expander("🏷️ Manage Categories", expanded=False):
+        # Show default categories (read-only)
+        st.caption("**Default Categories** (built-in)")
+        for cat in CATEGORIES:
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {cat}", 
+                           unsafe_allow_html=True)
+            with col2:
+                st.caption("built-in")
+        
+        st.divider()
+        
+        # Show custom categories (editable)
+        st.caption("**Your Custom Categories**")
+        
+        if st.session_state.custom_categories:
+            for cat in st.session_state.custom_categories:
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {cat}", 
+                               unsafe_allow_html=True)
+                
+                with col2:
+                    if st.button("✏️", key=f"rename_btn_{cat}", help=f"Rename {cat}"):
+                        st.session_state.renaming_category = cat
+                        st.rerun()
+            
+            # Show rename input if a category is being renamed
+            if 'renaming_category' in st.session_state and st.session_state.renaming_category:
+                cat_to_rename = st.session_state.renaming_category
+                
+                st.markdown(f"**Renaming:** *{cat_to_rename}*")
+                
+                new_name = st.text_input(
+                    "New name:",
+                    key=f"rename_input_{cat_to_rename}",
+                    placeholder="Enter new category name"
+                )
+                
+                col_confirm, col_cancel = st.columns(2)
+                
+                with col_confirm:
+                    if st.button("✅ Confirm", use_container_width=True, key=f"confirm_rename_{cat_to_rename}"):
+                        if new_name and new_name.strip():
+                            success, message, affected = rename_category(cat_to_rename, new_name.strip().title())
+                            
+                            if success:
+                                st.success(f"{message}")
+                                if affected['transactions'] > 0:
+                                    st.info(f"📊 Updated {affected['transactions']} transaction(s)")
+                                if affected['targets'] > 0:
+                                    st.info(f"🎯 Updated {affected['targets']} target(s)")
+                                
+                                # Clear renaming state
+                                del st.session_state.renaming_category
+                                st.rerun()
+                            else:
+                                st.error(message)
+                        else:
+                            st.error("Please enter a new name")
+                
+                with col_cancel:
+                    if st.button("❌ Cancel", use_container_width=True, key=f"cancel_rename_{cat_to_rename}"):
+                        del st.session_state.renaming_category
+                        st.rerun()
         else:
-            st.error("❌ Please enter a category name")
+            st.caption("*No custom categories yet*")
+        
+        st.divider()
+        
+        # Add new category
+        st.caption("**Add New Category**")
+        new_category = st.text_input(
+            "Category name:",
+            key="new_category_input",
+            placeholder="e.g., Pet Care"
+        )
+        
+        if st.button("➕ Add Category", use_container_width=True):
+            if new_category and new_category.strip():
+                # Clean the category name
+                clean_name = new_category.strip().title()
+                
+                # Check if it already exists (case-insensitive)
+                all_cats = get_all_categories()
+                if clean_name.lower() not in [c.lower() for c in all_cats]:
+                    st.session_state.custom_categories.append(clean_name)
+                    # Auto-assign a color to the new category
+                    color = assign_color_to_category(clean_name)
+                    st.success(f"✅ Added '{clean_name}'")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Category '{clean_name}' already exists")
+            else:
+                st.error("❌ Please enter a category name")
 
 # ============================================
 # PAGE ROUTING
