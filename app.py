@@ -1705,22 +1705,74 @@ CRITICAL: You have detailed transaction-level data in the context above. USE IT.
                                 if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                                     st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                 
+                                # Update targets
                                 for category, amount in targets_to_update.items():
                                     st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
                                     widget_key = f"target_{category}_{period_key}"
                                     if widget_key in st.session_state:
                                         del st.session_state[widget_key]
                                 
+                                # Save to project
                                 if st.session_state.current_project and st.session_state.current_project != "Current Session":
                                     save_targets_to_project(st.session_state.current_project)
                                 
+                                # Create function result
                                 updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
-                                ai_response = f"✅ Updated targets:\n\n{updates_text}"
+                                function_result = json.dumps({
+                                    "success": True,
+                                    "updated_targets": targets_to_update,
+                                    "period": period_key,
+                                    "message": f"Successfully updated targets: {updates_text}"
+                                })
                                 
-                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
-                                    ai_response += "\n\n💡 Save as project to persist targets."
+                                # Make follow-up call with better prompt
+                                try:
+                                    follow_up_messages = messages + [
+                                        {
+                                            "role": "assistant",
+                                            "content": None,
+                                            "function_call": {
+                                                "name": "update_targets",
+                                                "arguments": response_message.function_call.arguments
+                                            }
+                                        },
+                                        {
+                                            "role": "function",
+                                            "name": "update_targets",
+                                            "content": function_result
+                                        },
+                                        {
+                                            "role": "user",
+                                            "content": "Great! Can you confirm what you just updated and provide a friendly summary?"
+                                        }
+                                    ]
+                                    
+                                    follow_up_response = client.chat.completions.create(
+                                        model="gpt-4o-mini",
+                                        messages=follow_up_messages,
+                                        temperature=0.7,
+                                        max_tokens=1000
+                                    )
+                                    
+                                    ai_response = follow_up_response.choices[0].message.content
+                                    
+                                    # If still no response, create a good default
+                                    if not ai_response or not ai_response.strip():
+                                        ai_response = f"✅ Perfect! I've updated your {st.session_state.target_period_type} budget targets for {period_key}:\n\n"
+                                        for cat, amt in targets_to_update.items():
+                                            ai_response += f"• **{cat}**: £{amt:.2f}\n"
+                                        ai_response += "\nYour targets are now saved! 📊"
+                                        
+                                        if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                            ai_response += "\n\n💡 **Tip**: Save your data as a project to keep these targets permanently."
+                                            
+                                except Exception as e:
+                                    # Fallback if follow-up call fails
+                                    ai_response = f"✅ Updated targets:\n\n{updates_text}"
+                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                        ai_response += "\n\n💡 Save as project to persist targets."
                             else:
-                                ai_response = "❌ Could not update targets. Please specify amounts."
+                                ai_response = "❌ Could not update targets. Please specify amounts (e.g., 'Set Groceries to £300')."
                     else:
                         ai_response = response_message.content if response_message.content else "How can I help with your budget?"
                     
@@ -2089,12 +2141,15 @@ DETAILED SPENDING BY CATEGORY (with individual transaction details):
 
 USER QUESTION: {user_question}
 
-IMPORTANT INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
+- THE USER IS CURRENTLY VIEWING: {st.session_state.target_period_type.upper()} period for {st.session_state.current_target_period}
+- When the user says "implement these" or "set these budgets", they mean for the CURRENT PERIOD: {st.session_state.current_target_period}
+- If the user asks for "November 2025" targets but you're viewing "Yearly 2025", you need to tell them to switch to Monthly view first
 - You have access to detailed transaction data above. Each category shows specific payee names, dates, and amounts.
 - When answering questions like "What's my biggest expense?", reference the actual payee name and date from the data.
 - You can act like ChatGPT - provide context, ask follow-up questions, and have a natural conversation.
 - If the user asks about setting budgets, you can propose realistic targets based on their actual spending patterns.
-- Use the update_targets function to actually update budget targets when appropriate.
+- Use the update_targets function to actually update budget targets when appropriate - but ONLY for the current period!
 - Be conversational and helpful - you're a financial coach, not just a data analyzer."""
         else:
             context = f"""You are a helpful financial assistant.
@@ -2116,13 +2171,13 @@ INSTRUCTIONS:
         # Define update targets function
         update_targets_function = {
             "name": "update_targets",
-            "description": "Update spending targets for one or more categories. Use this when the user wants to set or modify budget limits.",
+            "description": f"Update spending targets for one or more categories for the current period ({st.session_state.target_period_type} - {st.session_state.current_target_period}). ONLY use this when the user explicitly wants to set or modify budgets for THIS specific period.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "targets": {
                         "type": "object",
-                        "description": "Dictionary of category names to target amounts in GBP",
+                        "description": "Dictionary of category names (e.g., 'Groceries', 'Transport') to target amounts in GBP (must be numbers, not strings)",
                         "additionalProperties": {
                             "type": "number"
                         }
@@ -2138,9 +2193,20 @@ INSTRUCTIONS:
                 messages = [
                     {
                         "role": "system",
-                        "content": """You are a helpful, conversational financial assistant. You have access to the user's detailed transaction data and can reference specific transactions.
+                        "content": f"""You are a helpful, conversational financial assistant. You have access to the user's detailed transaction data and can reference specific transactions.
+
+CRITICAL CONTEXT AWARENESS:
+- The user is currently viewing {st.session_state.target_period_type.upper()} targets for {st.session_state.current_target_period}
+- When they say "implement these" or "set these budgets", they mean for THIS period: {st.session_state.current_target_period}
+- If they ask for a different period (e.g., "November" when viewing "Yearly 2025"), tell them to switch the period selector first
+- ALWAYS pass actual target amounts in the targets dictionary, never empty
 
 When the user asks you to set, update, or propose budgets, you MUST use the update_targets function to make the changes. Don't just suggest - actually do it.
+
+FUNCTION CALLING RULES:
+- Always include category names and amounts in the targets parameter
+- Example: {{"targets": {{"Groceries": 300, "Transport": 150}}}}
+- Never call the function with empty parameters
 
 Be natural and conversational like ChatGPT. Ask follow-up questions, provide context, and help the user make good financial decisions."""
                     }
@@ -2174,8 +2240,12 @@ Be natural and conversational like ChatGPT. Ask follow-up questions, provide con
                 if response_message.function_call:
                     function_name = response_message.function_call.name
                     
+                    # Debug: show that function was called
+                    st.write(f"DEBUG: Function called: {function_name}")
+                    
                     try:
                         function_args = json.loads(response_message.function_call.arguments)
+                        st.write(f"DEBUG: Function args: {function_args}")
                     except json.JSONDecodeError:
                         ai_response = "❌ I had trouble processing that request. Could you try rephrasing?"
                         function_args = None
@@ -2188,27 +2258,88 @@ Be natural and conversational like ChatGPT. Ask follow-up questions, provide con
                         elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
                             targets_to_update = function_args
                         
-                        if targets_to_update:
+                        # Check if targets_to_update is valid and not empty
+                        if targets_to_update and len(targets_to_update) > 0:
                             period_key = st.session_state.current_target_period
                             if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                                 st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                             
+                            # Update targets
                             for category, amount in targets_to_update.items():
                                 st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
                                 widget_key = f"target_{category}_{period_key}"
                                 if widget_key in st.session_state:
                                     del st.session_state[widget_key]
                             
+                            # Save to project
                             if st.session_state.current_project and st.session_state.current_project != "Current Session":
                                 save_targets_to_project(st.session_state.current_project)
                             
-                            updates_text = "\n".join([f"- {cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
-                            ai_response = f"✅ I've updated your budget targets for {period_key}:\n\n{updates_text}\n\nYour targets are now saved and you can see the progress above!"
+                            # Create function result
+                            updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
+                            function_result = json.dumps({
+                                "success": True,
+                                "updated_targets": targets_to_update,
+                                "period": period_key,
+                                "message": f"Successfully updated targets: {updates_text}"
+                            })
                             
-                            if not st.session_state.current_project or st.session_state.current_project == "Current Session":
-                                ai_response += "\n\n💡 Tip: Save your data as a project to keep these targets permanently."
+                            # Make follow-up call with better prompt
+                            try:
+                                st.write("DEBUG: Making follow-up call...")
+                                follow_up_messages = messages + [
+                                    {
+                                        "role": "assistant",
+                                        "content": None,
+                                        "function_call": {
+                                            "name": "update_targets",
+                                            "arguments": response_message.function_call.arguments
+                                        }
+                                    },
+                                    {
+                                        "role": "function",
+                                        "name": "update_targets",
+                                        "content": function_result
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": "Great! Can you confirm what you just updated and provide a friendly summary?"
+                                    }
+                                ]
+                                
+                                follow_up_response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=follow_up_messages,
+                                    temperature=0.7,
+                                    max_tokens=1500
+                                )
+                                
+                                ai_response = follow_up_response.choices[0].message.content
+                                st.write(f"DEBUG: Follow-up response: {ai_response}")
+                                
+                                # If still no response, create a good default
+                                if not ai_response or not ai_response.strip():
+                                    st.write("DEBUG: No AI response, using fallback")
+                                    ai_response = f"✅ Perfect! I've updated your {st.session_state.target_period_type} budget targets for {period_key}:\n\n"
+                                    for cat, amt in targets_to_update.items():
+                                        ai_response += f"• **{cat}**: £{amt:.2f}\n"
+                                    ai_response += "\nYour targets are now saved and you can see the updated progress bars above! 📊"
+                                    
+                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                        ai_response += "\n\n💡 **Tip**: Save your data as a project to keep these targets permanently."
+                                        
+                            except Exception as e:
+                                # Fallback if follow-up call fails
+                                st.write(f"DEBUG: Follow-up call failed: {str(e)}")
+                                ai_response = f"✅ I've updated your budget targets for {period_key}:\n\n{updates_text}\n\nYour targets are now saved! Check the progress bars above to see how you're doing. 📊"
+                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                    ai_response += "\n\n💡 Save your data as a project to keep these targets."
                         else:
-                            ai_response = "❌ I couldn't update the targets. Please specify which categories and amounts you'd like."
+                            # AI called function but didn't provide targets - it might be confused about the period
+                            st.write(f"DEBUG: No valid targets provided. targets_to_update = {targets_to_update}")
+                            ai_response = f"❌ I couldn't determine which targets to update. The current period is **{st.session_state.target_period_type} - {st.session_state.current_target_period}**.\n\nPlease be specific, for example:\n- 'Set Groceries to £300 for {st.session_state.current_target_period}'\n- 'Update Transport to £150'\n\nMake sure the period type matches what you're asking for (you're currently viewing **{st.session_state.target_period_type}** targets)."
+                    else:
+                        ai_response = "❌ I had trouble understanding that request. Could you try rephrasing?"
                 else:
                     ai_response = response_message.content if response_message.content else "I'm here to help with your budgets. What would you like to know?"
                 

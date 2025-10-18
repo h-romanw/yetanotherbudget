@@ -1,5 +1,5 @@
 {
-  "project_name": "Test Project",
+  "project_name": "Test 4",
   "transactions": [
     {
       "date": "01/07/2025",
@@ -184,35 +184,15 @@
       "category": "Other"
     }
   ],
-  "created_at": "2025-10-18T14:32:55.840381",
+  "created_at": "2025-10-18T15:30:09.187613",
   "total_transactions": 26,
   "targets": {
     "monthly": {
       "October 2025": {
-        "Groceries": 40.0,
-        "Dining & Takeout": 0.0,
-        "Bills & Utilities": 0.0,
-        "Transport": 0.0,
-        "Shopping": 0.0,
-        "Entertainment": 0.0,
-        "Health & Fitness": 0.0,
-        "Travel": 0.0,
-        "Other": 0.0
+        "Groceries": 250
       }
     },
-    "yearly": {
-      "2025": {
-        "Groceries": 0.0,
-        "Dining & Takeout": 0.0,
-        "Bills & Utilities": 0.0,
-        "Transport": 0.0,
-        "Shopping": 0.0,
-        "Entertainment": 0.0,
-        "Health & Fitness": 0.0,
-        "Travel": 0.0,
-        "Other": 0.0
-      }
-    },
+    "yearly": {},
     "alltime": {}
   },
   "custom_categories": [],
@@ -227,54 +207,5 @@
     "Travel": "#5856D6",
     "Other": "#8E8E93"
   },
-  "chat_messages": [
-    {
-      "role": "user",
-      "content": "what's my biggest grocery expense?"
-    },
-    {
-      "role": "assistant",
-      "content": "Your biggest grocery expense this month was at Tesco Supermarket, where you spent \u00a348.75 on July 3, 2025. \n\nIf you're looking to adjust your grocery budget or have any other spending categories in mind, just let me know!"
-    },
-    {
-      "role": "user",
-      "content": "suggest a yearly budget based on my monthly spending"
-    },
-    {
-      "role": "assistant",
-      "content": "Based on your spending summary for October 2025, we can calculate a yearly budget that reflects your monthly expenses. Here's a breakdown of your average monthly spending in each category:\n\n1. **Bills & Utilities**: \u00a3955.57 \n2. **Dining & Takeout**: \u00a350.55 \n3. **Entertainment**: \u00a342.18 \n4. **Groceries**: \u00a382.85 \n5. **Health & Fitness**: \u00a3135.00 \n6. **Other**: \u00a3260.00 \n7. **Shopping**: \u00a3107.34 \n8. **Transport**: \u00a343.40 \n\nIf we project these monthly figures over 12 months, your yearly budget would look like this:\n\n- **Bills & Utilities**: \u00a311,467.84 \n- **Dining & Takeout**: \u00a3606.60 \n- **Entertainment**: \u00a3506.16 \n- **Groceries**: \u00a3994.20 \n- **Health & Fitness**: \u00a31,620.00 \n- **Other**: \u00a33,120.00 \n- **Shopping**: \u00a31,288.08 \n- **Transport**: \u00a3520.80 \n\nThis gives us a total yearly budget of approximately **\u00a319,306.68**.\n\nWould you like to set these as your yearly budget targets? Or do you want to adjust any specific categories based on future plans or changes in spending habits?"
-    },
-    {
-      "role": "user",
-      "content": "set those as my yearly targets"
-    },
-    {
-      "role": "user",
-      "content": "did you set those targets?"
-    },
-    {
-      "role": "assistant",
-      "content": "It looks like those targets were not set based on your actual spending patterns. In fact, your current spending is significantly over the targets in almost every category. For example, you've spent \u00a3955.57 on Bills & Utilities, but your target is \u00a30.00. \n\nWould you like to adjust these targets to better reflect your spending habits? We can create more realistic budgets for each category based on your past transactions. Let me know what you'd like to do!"
-    },
-    {
-      "role": "user",
-      "content": "no please set the yearly targets we just discussed"
-    },
-    {
-      "role": "user",
-      "content": "what was my most expensive July shopping expense?"
-    },
-    {
-      "role": "assistant",
-      "content": "Your most expensive shopping expense in July was on the 6th, where you spent \u00a362.34 at Amazon Marketplace. \n\nIs there anything specific you want to adjust in your budget or any other questions you have about your spending?"
-    },
-    {
-      "role": "user",
-      "content": "what did I just ask you?"
-    },
-    {
-      "role": "assistant",
-      "content": "It seems like you might be looking for a summary or a specific insight from your transaction data! Have you been thinking about your biggest expense or how to adjust your budgets? \n\nIf you have a particular question or area of focus in mind, feel free to share! I'm here to help you make sense of this data and guide you in managing your finances effectively."
-    }
-  ]
+  "chat_messages": []
 }

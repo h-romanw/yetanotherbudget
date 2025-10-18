@@ -1,0 +1,172 @@
+{
+  "project_name": "Test 5",
+  "transactions": [
+    {
+      "date": "12/10/2025",
+      "payee": "TESCO STORES",
+      "amount": 45.32,
+      "category": "Groceries"
+    },
+    {
+      "date": "11/10/2025",
+      "payee": "AMAZON MARKETPLACE",
+      "amount": 89.99,
+      "category": "Shopping"
+    },
+    {
+      "date": "10/10/2025",
+      "payee": "SHELL FUEL",
+      "amount": 52.0,
+      "category": "Transport"
+    },
+    {
+      "date": "09/10/2025",
+      "payee": "RENT PAYMENT",
+      "amount": 1200.0,
+      "category": "Bills & Utilities"
+    },
+    {
+      "date": "08/10/2025",
+      "payee": "SAINSBURYS",
+      "amount": 67.45,
+      "category": "Groceries"
+    },
+    {
+      "date": "07/10/2025",
+      "payee": "NETFLIX",
+      "amount": 15.99,
+      "category": "Entertainment"
+    },
+    {
+      "date": "06/10/2025",
+      "payee": "STARBUCKS",
+      "amount": 4.5,
+      "category": "Dining & Takeout"
+    },
+    {
+      "date": "05/10/2025",
+      "payee": "UBER TRIP",
+      "amount": 18.5,
+      "category": "Transport"
+    },
+    {
+      "date": "04/10/2025",
+      "payee": "MARKS & SPENCER",
+      "amount": 34.2,
+      "category": "Groceries"
+    },
+    {
+      "date": "03/10/2025",
+      "payee": "ELECTRICITY BILL",
+      "amount": 85.0,
+      "category": "Bills & Utilities"
+    },
+    {
+      "date": "02/10/2025",
+      "payee": "WAGAMAMA",
+      "amount": 42.0,
+      "category": "Dining & Takeout"
+    },
+    {
+      "date": "01/10/2025",
+      "payee": "GYM MEMBERSHIP",
+      "amount": 45.0,
+      "category": "Health & Fitness"
+    },
+    {
+      "date": "30/09/2025",
+      "payee": "ASDA",
+      "amount": 56.78,
+      "category": "Groceries"
+    },
+    {
+      "date": "29/09/2025",
+      "payee": "SPOTIFY",
+      "amount": 9.99,
+      "category": "Entertainment"
+    },
+    {
+      "date": "28/09/2025",
+      "payee": "WATER BILL",
+      "amount": 28.5,
+      "category": "Bills & Utilities"
+    },
+    {
+      "date": "27/09/2025",
+      "payee": "CINEMA TICKETS",
+      "amount": 24.0,
+      "category": "Entertainment"
+    },
+    {
+      "date": "26/09/2025",
+      "payee": "DELIVEROO",
+      "amount": 31.5,
+      "category": "Dining & Takeout"
+    },
+    {
+      "date": "25/09/2025",
+      "payee": "TRAINLINE",
+      "amount": 67.0,
+      "category": "Transport"
+    },
+    {
+      "date": "24/09/2025",
+      "payee": "BOOTS PHARMACY",
+      "amount": 23.45,
+      "category": "Health & Fitness"
+    },
+    {
+      "date": "23/09/2025",
+      "payee": "COUNCIL TAX",
+      "amount": 180.0,
+      "category": "Bills & Utilities"
+    }
+  ],
+  "created_at": "2025-10-18T15:32:48.224878",
+  "total_transactions": 20,
+  "targets": {
+    "monthly": {
+      "November 2025": {
+        "Groceries": 220.0,
+        "Dining & Takeout": 80.0,
+        "Bills & Utilities": 1493.5,
+        "Transport": 150.0,
+        "Shopping": 100.0,
+        "Entertainment": 50.0,
+        "Health & Fitness": 70.0,
+        "Travel": 0.0,
+        "Other": 0.0
+      },
+      "December 2025": {
+        "Groceries": 300
+      }
+    },
+    "yearly": {
+      "2025": {
+        "Groceries": 3000.0,
+        "Dining & Takeout": 0.0,
+        "Bills & Utilities": 0.0,
+        "Transport": 2000.0,
+        "Shopping": 0.0,
+        "Entertainment": 0.0,
+        "Health & Fitness": 0.0,
+        "Travel": 0.0,
+        "Other": 0.0
+      }
+    },
+    "alltime": {}
+  },
+  "custom_categories": [],
+  "category_colors": {
+    "Groceries": "#00D084",
+    "Dining & Takeout": "#FF9500",
+    "Bills & Utilities": "#B040D0",
+    "Transport": "#007AFF",
+    "Shopping": "#FF2D55",
+    "Entertainment": "#FF3B30",
+    "Health & Fitness": "#34C759",
+    "Travel": "#5856D6",
+    "Other": "#8E8E93"
+  },
+  "chat_messages": []
+}
