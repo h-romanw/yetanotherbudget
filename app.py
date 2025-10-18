@@ -857,6 +857,12 @@ if 'current_target_period' not in st.session_state:
     # Initialize with current month/year
     now = datetime.now()
     st.session_state.current_target_period = f"{now.strftime('%B %Y')}"  # e.g., "January 2025"
+if 'chart_period_type' not in st.session_state:
+    st.session_state.chart_period_type = 'monthly'  # 'monthly', 'yearly', or 'alltime'
+if 'current_chart_period' not in st.session_state:
+    # Initialize with current month/year
+    now = datetime.now()
+    st.session_state.current_chart_period = f"{now.strftime('%B %Y')}"  # e.g., "January 2025"
 
 # Sidebar
 with st.sidebar:
@@ -1367,9 +1373,11 @@ elif st.session_state.current_page == "analyze":
 
             fig_donut.update_traces(
                 textposition='outside',
-                textinfo='percent',
+                textinfo='none',  # Hide default text
                 textfont_size=12,
-                marker=dict(line=dict(color='#FFFFFF', width=2)))
+                marker=dict(line=dict(color='#FFFFFF', width=2)),
+                hovertemplate='<b>%{label}</b><br>£%{value:,.2f}<br>%{percent}<extra></extra>'  # Added custom hover with %
+            )
 
             fig_donut.update_layout(showlegend=True,
                                     height=400,
@@ -1388,57 +1396,133 @@ elif st.session_state.current_page == "analyze":
 
             st.plotly_chart(fig_donut, use_container_width=True)
 
-            # Line chart showing spending over time
+            # Stacked bar chart showing spending over time
             st.markdown("### Spending Over Time")
+            
+            # Period type selector
+            chart_period_type = st.radio(
+                "View by:",
+                ["Monthly", "Yearly", "All-Time"],
+                horizontal=True,
+                index=0 if st.session_state.chart_period_type == 'monthly' else (1 if st.session_state.chart_period_type == 'yearly' else 2),
+                key="chart_period_selector"
+            )
+            
+            # Update period type if changed
+            new_chart_period_type = chart_period_type.lower().replace('-', '')
+            if new_chart_period_type != st.session_state.chart_period_type:
+                st.session_state.chart_period_type = new_chart_period_type
+                now = datetime.now()
+                if new_chart_period_type == 'monthly':
+                    st.session_state.current_chart_period = now.strftime('%B %Y')
+                elif new_chart_period_type == 'yearly':
+                    st.session_state.current_chart_period = str(now.year)
+                else:
+                    st.session_state.current_chart_period = 'All Time'
+                st.rerun()
+            
+            # Period navigation (for monthly and yearly views)
+            if st.session_state.chart_period_type != 'alltime':
+                col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
+                
+                with col_nav1:
+                    if st.button("◀", use_container_width=True, key="chart_prev"):
+                        st.session_state.current_chart_period = get_prev_period(
+                            st.session_state.current_chart_period, 
+                            st.session_state.chart_period_type
+                        )
+                        st.rerun()
+                
+                with col_nav2:
+                    st.markdown(f"<h4 style='text-align: center; margin: 0;'>{st.session_state.current_chart_period}</h4>", 
+                               unsafe_allow_html=True)
+                
+                with col_nav3:
+                    if st.button("▶", use_container_width=True, key="chart_next"):
+                        st.session_state.current_chart_period = get_next_period(
+                            st.session_state.current_chart_period, 
+                            st.session_state.chart_period_type
+                        )
+                        st.rerun()
 
-            # Parse dates and group by date and category
+            # Parse dates and filter by period
             df_chart = df.copy()
             df_chart['date'] = pd.to_datetime(df_chart['date'],
                                               format='%d/%m/%Y', errors='coerce')
             df_chart = df_chart.dropna(subset=['date'])
-
-            # Group by date and category
-            timeline_data = df_chart.groupby(['date', 'category'
-                                              ])['amount'].sum().reset_index()
-
-            # Create line chart with matching colors from donut chart
-            import plotly.graph_objects as go
             
-            fig_line = px.line(
-                timeline_data,
-                x='date',
-                y='amount',
-                color='category',
-                color_discrete_map={
-                    cat: get_category_color(cat)
-                    for cat in timeline_data['category'].unique()
-                })
-
-            fig_line.update_traces(mode='lines', line=dict(width=3))
-
-            fig_line.update_layout(
-                height=300,
-                showlegend=True,
-                legend=dict(orientation="h",
-                           yanchor="bottom",
-                           y=1.02,
-                           xanchor="left",
-                           x=0),
-                xaxis=dict(showgrid=True,
-                          gridcolor='#E0E0E0',
-                          zeroline=False),
-                yaxis=dict(showgrid=True,
-                          gridcolor='#E0E0E0',
-                          zeroline=False),
-                font=dict(family="Manrope, Arial, sans-serif",
-                         size=12,
-                         color="#000000"),
-                margin=dict(t=50, b=20, l=20, r=20),
-                paper_bgcolor='white',
-                plot_bgcolor='white'
-            )
-
-            st.plotly_chart(fig_line, use_container_width=True)
+            # Filter by selected period
+            if st.session_state.chart_period_type != 'alltime':
+                df_chart = get_transactions_for_period(
+                    df_chart,
+                    st.session_state.chart_period_type,
+                    st.session_state.current_chart_period
+                )
+            
+            if len(df_chart) > 0:
+                # Group by date and category for stacked bar chart
+                daily_spending = df_chart.groupby([df_chart['date'].dt.date, 'category'])['amount'].sum().reset_index()
+                daily_spending.columns = ['date', 'category', 'amount']
+                
+                # Sort by date to ensure proper display
+                daily_spending = daily_spending.sort_values('date')
+                
+                # Create stacked bar chart
+                fig_bar = px.bar(
+                    daily_spending,
+                    x='date',
+                    y='amount',
+                    color='category',
+                    color_discrete_map={
+                        cat: get_category_color(cat)
+                        for cat in daily_spending['category'].unique()
+                    }
+                )
+                
+                # Explicitly set barmode to stack
+                fig_bar.update_layout(barmode='stack')
+                
+                fig_bar.update_traces(
+                    marker=dict(line=dict(color='#FFFFFF', width=1))
+                )
+                
+                fig_bar.update_layout(
+                    height=350,
+                    showlegend=True,
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="left",
+                        x=0,
+                        title=""
+                    ),
+                    xaxis=dict(
+                        showgrid=True,
+                        gridcolor='#E0E0E0',
+                        zeroline=False,
+                        title="Date"
+                    ),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridcolor='#E0E0E0',
+                        zeroline=False,
+                        title="Amount (£)"
+                    ),
+                    font=dict(
+                        family="Manrope, Arial, sans-serif",
+                        size=12,
+                        color="#000000"
+                    ),
+                    margin=dict(t=50, b=50, l=50, r=20),
+                    paper_bgcolor='white',
+                    plot_bgcolor='white',
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.info(f"📊 No transactions found for {st.session_state.current_chart_period}")
             
             # Balance tracking chart (if balance column exists)
             if 'balance' in df.columns:
