@@ -2177,7 +2177,7 @@ elif st.session_state.current_page == "targets":
             """, unsafe_allow_html=True)
             
             user_question = st.chat_input(
-                placeholder="Ask about spending or request budget help...", 
+                placeholder="Ask about budgeting...", 
                 key="targets_chat_input"
             )
     
