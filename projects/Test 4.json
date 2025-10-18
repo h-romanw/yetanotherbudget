@@ -184,7 +184,7 @@
       "category": "Other"
     }
   ],
-  "created_at": "2025-10-18T16:11:43.271589",
+  "created_at": "2025-10-18T18:13:08.246888",
   "total_transactions": 26,
   "targets": {
     "monthly": {
@@ -195,7 +195,9 @@
     "yearly": {},
     "alltime": {}
   },
-  "custom_categories": [],
+  "custom_categories": [
+    "Interest Earnings"
+  ],
   "category_colors": {
     "Groceries": "#00D084",
     "Dining & Takeout": "#FF9500",
@@ -205,7 +207,12 @@
     "Entertainment": "#FF3B30",
     "Health & Fitness": "#34C759",
     "Travel": "#5856D6",
-    "Other": "#8E8E93"
+    "Other": "#8E8E93",
+    "Interest Earnings": "#FF6B6B"
+  },
+  "category_aliases": {
+    "Health & Fitness": "Mental Health",
+    "Other": "Income"
   },
   "chat_messages": []
 }

@@ -99,6 +99,108 @@ def sync_categories_from_dataframe(df):
                 assign_color_to_category(cat)
 
 
+def get_display_name(category):
+    """
+    Get the display name for a category (alias if exists, otherwise original name).
+    This allows project-specific renaming of default categories.
+    """
+    if 'category_aliases' not in st.session_state:
+        return category
+    return st.session_state.category_aliases.get(category, category)
+
+
+def get_original_name(display_name):
+    """
+    Get the original category name from a display name.
+    Does reverse lookup in the aliases dictionary.
+    """
+    if 'category_aliases' not in st.session_state:
+        return display_name
+    
+    # Check if it's an alias (reverse lookup)
+    for original, alias in st.session_state.category_aliases.items():
+        if alias == display_name:
+            return original
+    
+    # Not an alias, return as-is
+    return display_name
+
+
+def set_category_alias(original_name, alias_name):
+    """
+    Set a project-specific alias for a category.
+    
+    Args:
+        original_name: The original category name
+        alias_name: The new display name (alias)
+    
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        if 'category_aliases' not in st.session_state:
+            st.session_state.category_aliases = {}
+        
+        # Validate alias name
+        if not alias_name or not alias_name.strip():
+            return False, "Alias name cannot be empty"
+        
+        alias_name = alias_name.strip().title()
+        
+        # Check if this alias already exists for a different category
+        for orig, existing_alias in st.session_state.category_aliases.items():
+            if existing_alias.lower() == alias_name.lower() and orig != original_name:
+                return False, f"Name '{alias_name}' is already used for category '{orig}'"
+        
+        # Check if alias conflicts with existing category names
+        all_cats = get_all_categories()
+        if alias_name.lower() in [c.lower() for c in all_cats if c != original_name]:
+            return False, f"Name '{alias_name}' conflicts with an existing category"
+        
+        # Set or update the alias
+        st.session_state.category_aliases[original_name] = alias_name
+        
+        # Save to project if one is loaded
+        if st.session_state.current_project and st.session_state.current_project != "Current Session":
+            if st.session_state.transactions is not None:
+                save_project(st.session_state.current_project, st.session_state.transactions)
+        
+        return True, f"Successfully set alias: '{original_name}' → '{alias_name}'"
+        
+    except Exception as e:
+        return False, f"Error setting alias: {str(e)}"
+
+
+def remove_category_alias(original_name):
+    """
+    Remove an alias for a category, reverting to the original name.
+    
+    Args:
+        original_name: The original category name
+    
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        if 'category_aliases' not in st.session_state:
+            return False, "No aliases set"
+        
+        if original_name in st.session_state.category_aliases:
+            alias = st.session_state.category_aliases.pop(original_name)
+            
+            # Save to project if one is loaded
+            if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                if st.session_state.transactions is not None:
+                    save_project(st.session_state.current_project, st.session_state.transactions)
+            
+            return True, f"Removed alias '{alias}', reverted to '{original_name}'"
+        else:
+            return False, f"No alias set for '{original_name}'"
+            
+    except Exception as e:
+        return False, f"Error removing alias: {str(e)}"
+
+
 def assign_color_to_category(category):
     """Auto-assign a color to a new category"""
     if 'category_colors' not in st.session_state:
@@ -458,6 +560,7 @@ def save_project(project_name, transactions_df):
             'targets': st.session_state.targets,
             'custom_categories': st.session_state.get('custom_categories', []),
             'category_colors': st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy()),
+            'category_aliases': st.session_state.get('category_aliases', {}),
             'chat_messages': st.session_state.get('chat_messages', [])
         }
         
@@ -489,6 +592,7 @@ def load_project(project_name):
         st.session_state.chat_messages = []
         st.session_state.custom_categories = []
         st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+        st.session_state.category_aliases = {}
         
         # Load project-specific targets if they exist
         if 'targets' in data:
@@ -505,6 +609,10 @@ def load_project(project_name):
         # Load project-specific category colors if they exist
         if 'category_colors' in data:
             st.session_state.category_colors = data['category_colors']
+        
+        # Load project-specific category aliases if they exist
+        if 'category_aliases' in data:
+            st.session_state.category_aliases = data['category_aliases']
         
         # Sync categories from DataFrame (in case manual edits added new ones)
         sync_categories_from_dataframe(df)
@@ -596,6 +704,7 @@ def save_targets_to_project(project_name):
         data['chat_messages'] = st.session_state.get('chat_messages', [])
         data['custom_categories'] = st.session_state.get('custom_categories', [])
         data['category_colors'] = st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy())
+        data['category_aliases'] = st.session_state.get('category_aliases', {})
         
         # Write back to file
         with open(filename, 'w') as f:
@@ -916,6 +1025,8 @@ if 'chat_messages_page3' not in st.session_state:
     st.session_state.chat_messages_page3 = []
 if 'category_colors' not in st.session_state:
     st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+if 'category_aliases' not in st.session_state:
+    st.session_state.category_aliases = {}  # Project-specific aliases for categories
 if 'current_project' not in st.session_state:
     st.session_state.current_project = None
 if 'projects_list' not in st.session_state:
@@ -989,19 +1100,72 @@ with st.sidebar:
 
     # Custom categories section
     with st.expander("🏷️ Manage Categories", expanded=False):
-        # Show default categories (read-only)
-        st.caption("**Default Categories** (built-in)")
+        # Show default categories (can set aliases)
+        st.caption("**Default Categories** (project-specific names)")
         for cat in CATEGORIES:
-            col1, col2 = st.columns([4, 1])
+            display_name = get_display_name(cat)
+            is_aliased = display_name != cat
+            
+            col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {cat}", 
+                st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {display_name}", 
                            unsafe_allow_html=True)
+                if is_aliased:
+                    st.caption(f"(originally: {cat})")
+            
             with col2:
-                st.caption("built-in")
+                if is_aliased:
+                    # Show reset button if aliased
+                    if st.button("↺", key=f"reset_alias_{cat}", help=f"Reset to '{cat}'"):
+                        success, message = remove_category_alias(cat)
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
+                else:
+                    # Show rename button if not aliased
+                    if st.button("✏️", key=f"alias_btn_{cat}", help=f"Rename for this project"):
+                        st.session_state.aliasing_category = cat
+                        st.rerun()
+        
+        # Show alias input if a default category is being aliased
+        if 'aliasing_category' in st.session_state and st.session_state.aliasing_category:
+            cat_to_alias = st.session_state.aliasing_category
+            
+            st.markdown(f"**Set alias for:** *{cat_to_alias}*")
+            
+            alias_name = st.text_input(
+                "Display name:",
+                key=f"alias_input_{cat_to_alias}",
+                placeholder="Enter new display name"
+            )
+            
+            col_confirm, col_cancel = st.columns(2)
+            
+            with col_confirm:
+                if st.button("✅ Set", use_container_width=True, key=f"confirm_alias_{cat_to_alias}"):
+                    if alias_name and alias_name.strip():
+                        success, message = set_category_alias(cat_to_alias, alias_name.strip().title())
+                        
+                        if success:
+                            st.success(message)
+                            del st.session_state.aliasing_category
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.error("Please enter a display name")
+            
+            with col_cancel:
+                if st.button("❌ Cancel", use_container_width=True, key=f"cancel_alias_{cat_to_alias}"):
+                    del st.session_state.aliasing_category
+                    st.rerun()
         
         st.divider()
         
         # Show custom categories (editable)
+        st.caption("**Your Custom Categories**")
         st.caption("**Your Custom Categories**")
         
         if st.session_state.custom_categories:
@@ -1336,11 +1500,14 @@ if st.session_state.current_page == "summarize":
                         'category')['amount'].sum().reset_index()
                     category_spending = category_spending.sort_values(
                         'amount', ascending=False)
+                    
+                    # Apply display names (aliases) for chart
+                    category_spending['display_name'] = category_spending['category'].apply(get_display_name)
 
                     # Create pie chart with consistent category colors
                     fig = px.pie(category_spending,
                                  values='amount',
-                                 names='category',
+                                 names='display_name',
                                  title='',
                                  color='category',
                                  color_discrete_map={
@@ -1487,6 +1654,9 @@ elif st.session_state.current_page == "analyze":
                 'category')['amount'].sum().reset_index()
             category_spending = category_spending.sort_values('amount',
                                                               ascending=False)
+            
+            # Apply display names (aliases) for chart
+            category_spending['display_name'] = category_spending['category'].apply(get_display_name)
 
             # Use category colors
             colors = [
@@ -1496,7 +1666,7 @@ elif st.session_state.current_page == "analyze":
 
             fig_donut = px.pie(category_spending,
                                values='amount',
-                               names='category',
+                               names='display_name',
                                hole=0.6,
                                color='category',
                                color_discrete_map={
@@ -1607,14 +1777,17 @@ elif st.session_state.current_page == "analyze":
                 # Sort by date to ensure proper display
                 daily_spending = daily_spending.sort_values('date')
                 
+                # Apply display names (aliases) for chart
+                daily_spending['display_name'] = daily_spending['category'].apply(get_display_name)
+                
                 # Create stacked bar chart
                 fig_bar = px.bar(
                     daily_spending,
                     x='date',
                     y='amount',
-                    color='category',
+                    color='display_name',
                     color_discrete_map={
-                        cat: get_category_color(cat)
+                        get_display_name(cat): get_category_color(cat)
                         for cat in daily_spending['category'].unique()
                     }
                 )
@@ -2167,6 +2340,7 @@ elif st.session_state.current_page == "targets":
         updated_targets = {}
         
         for category in all_categories:
+            display_name = get_display_name(category)
             col_cat, col_input = st.columns([2, 1])
             
             with col_cat:
@@ -2174,7 +2348,7 @@ elif st.session_state.current_page == "targets":
                 st.markdown(
                     f'<div style="background-color: {color}; color: white; padding: 8px 16px; '
                     f'border-radius: 20px; display: inline-block; margin: 4px 0;">'
-                    f'{category}</div>',
+                    f'{display_name}</div>',
                     unsafe_allow_html=True
                 )
             
@@ -2226,6 +2400,7 @@ elif st.session_state.current_page == "targets":
             if progress and any(period_targets.values()):
                 for category in all_categories:
                     if category in progress:
+                        display_name = get_display_name(category)
                         data = progress[category]
                         spent = data['spent']
                         target = data['target']
@@ -2252,7 +2427,7 @@ elif st.session_state.current_page == "targets":
                                 st.markdown(
                                     f'<div style="background-color: {color}; color: white; padding: 8px 16px; '
                                     f'border-radius: 20px; display: inline-block; margin: 4px 0;">'
-                                    f'{category}</div>',
+                                    f'{display_name}</div>',
                                     unsafe_allow_html=True
                                 )
                             
