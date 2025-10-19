@@ -17,14 +17,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
     menu_items=None,
-    # theme paramater doesn't work in Replit. See .streamlit/config.toml for theme parameters.
-    # theme={
-    #    "base": "light",
-    #    "primaryColor": "#832632",
-    #    "backgroundColor": "#f5f5f5",
-    #    "secondaryBackgroundColor": "#e2999b",
-    #    "textColor": "#52181e"
-    #}
 )
 
 # Check for OpenAI API key
@@ -75,20 +67,36 @@ def clean_dataframe_for_json(df):
     
     df_clean = df.copy()
     
+    # Replace infinite values first
+    df_clean = df_clean.replace([float('inf'), float('-inf')], 0)
+    
     for col in df_clean.columns:
-        if df_clean[col].dtype in ['float64', 'int64']:
+        # Check if column is numeric
+        if pd.api.types.is_numeric_dtype(df_clean[col]):
             # For numeric columns, replace NaN with 0
             df_clean[col] = df_clean[col].fillna(0)
+            # Convert to standard float or int
+            if df_clean[col].dtype in ['Float64', 'Int64']:
+                df_clean[col] = df_clean[col].astype('float64')
         else:
-            # For string columns, replace NaN with empty string
+            # For non-numeric columns, replace NaN with empty string
             df_clean[col] = df_clean[col].fillna('')
+            # Ensure it's a string type
+            df_clean[col] = df_clean[col].astype(str)
+    
+    # Final safety: replace any remaining NaN values
+    df_clean = df_clean.fillna(0)
     
     return df_clean
 
 
 def get_all_categories():
     """Get combined list of default + custom categories"""
-    return CATEGORIES + st.session_state.get('custom_categories', [])
+    custom = st.session_state.get('custom_categories', [])
+    # Ensure all categories are strings
+    all_cats = CATEGORIES + [str(cat) for cat in custom if cat]
+    # Remove any empty strings or NaN
+    return [cat for cat in all_cats if cat and str(cat) != 'nan']
 
 
 def sync_categories_from_dataframe(df):
@@ -840,6 +848,8 @@ def categorize_transactions(df):
         return None
 
     categories_list = get_all_categories()
+    # Ensure all categories are strings and not empty
+    categories_list = [str(cat) for cat in categories_list if cat and str(cat).strip() != '' and str(cat) != 'nan']
 
     # Prepare batch of transactions
     batch_size = 15
@@ -1231,6 +1241,105 @@ st.markdown("""
         border: 1px solid #52181E !important;
         padding: 0 !important   
     }
+    
+        /* ========================================
+       CHAT CONTAINER ENHANCEMENTS
+       ======================================== */
+    
+    /* Target containers with 450px height - multiple approaches for compatibility */
+    div[style*="height: 450px"],
+    div[style*="height:450px"],
+    [data-testid="stVerticalBlock"] div[style*="height: 450px"],
+    [data-testid="stVerticalBlock"] > div > div[style*="height: 450px"] {
+        background-color: #f8f8f8 !important;
+        background: #f8f8f8 !important;
+        border-radius: 10px !important;
+        padding: 16px !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+    
+    /* Target the parent element container */
+    [data-testid="element-container"]:has(div[style*="height: 450px"]) {
+        background-color: #f8f8f8 !important;
+        border-radius: 10px !important;
+        padding: 0 !important;
+    }
+    
+    /* Override Streamlit's default container background */
+    [data-testid="stVerticalBlock"]:has(.stChatMessage) {
+        background-color: #f8f8f8 !important;
+    }
+    
+    /* Chat message bubbles */
+    .stChatMessage {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        border: none !important;
+    }
+    
+    /* User messages - burgundy background */
+    .stChatMessage[data-testid="chat-message-user"],
+    .stChatMessage[data-testid="chat-message-user"] > div {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: white !important;
+    }
+    
+    .stChatMessage[data-testid="chat-message-user"] *,
+    .stChatMessage[data-testid="chat-message-user"] p,
+    .stChatMessage[data-testid="chat-message-user"] div {
+        color: white !important;
+    }
+    
+    /* Assistant messages - white background with border */
+    .stChatMessage[data-testid="chat-message-assistant"] {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    /* Chat input field */
+    .stChatInput,
+    .stChatInput > div {
+        background-color: white !important;
+        background: white !important;
+        border-radius: 20px !important;
+        border: 2px solid #e0e0e0 !important;
+    }
+    
+    .stChatInput:focus-within,
+    .stChatInput:focus-within > div {
+        border-color: #832632 !important;
+        box-shadow: 0 0 0 3px rgba(131, 38, 50, 0.1) !important;
+    }
+    
+    /* Chat send button */
+    .stChatInput button,
+    .stChatInput button:hover,
+    .stChatInput button:focus {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        border-radius: 50% !important;
+        width: 36px !important;
+        height: 36px !important;
+        border: none !important;
+    }
+    
+    .stChatInput button:hover {
+        background-color: #9a2d3d !important;
+        background: #9a2d3d !important;
+    }
+    
+    .stChatInput button svg,
+    .stChatInput button path {
+        fill: white !important;
+    }
+    
 </style>
 """,
             unsafe_allow_html=True)
@@ -1672,6 +1781,10 @@ if st.session_state.current_page == "summarize":
     if st.session_state.transactions is not None:
         # Display loaded data
         df = st.session_state.transactions
+        
+        # Ensure DataFrame is clean before any operations
+        df = clean_dataframe_for_json(df)
+        st.session_state.transactions = df
 
         st.success(f"✅ Loaded {len(df)} transactions")
 
@@ -1700,6 +1813,14 @@ if st.session_state.current_page == "summarize":
 
             # Clean any NaN values before displaying in data editor
             df_clean = clean_dataframe_for_json(df)
+            
+            # Additional safety: ensure no NaN values in any column
+            for col in df_clean.columns:
+                if df_clean[col].isnull().any():
+                    if pd.api.types.is_numeric_dtype(df_clean[col]):
+                        df_clean[col] = df_clean[col].fillna(0)
+                    else:
+                        df_clean[col] = df_clean[col].fillna('')
             
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
@@ -2195,7 +2316,7 @@ elif st.session_state.current_page == "analyze":
                 </div>
                 """,
                             unsafe_allow_html=True)
-
+                
                 # Scrollable chat messages container with fixed height
                 chat_messages_container = st.container(height=450)
 
