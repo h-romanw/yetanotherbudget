@@ -20,12 +20,24 @@ st.set_page_config(
 )
 
 # Check for OpenAI API key
-api_key = os.getenv("OPENAI_API_KEY")
+# api_key = os.getenv("OPENAI_API_KEY")
+# if not api_key:
+#     st.error(
+#         "⚠️ OpenAI API key not found. Please add OPENAI_API_KEY to your .env file in the root directory."
+#     )
+#     client = None
+# else:
+#     client = OpenAI(api_key=api_key)
+
+# First try Streamlit secrets (for deployed apps), then fall back to .env (for local dev)
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+except (KeyError, FileNotFoundError):
+    api_key = os.getenv("OPENAI_API_KEY")
+
 if not api_key:
-    st.error(
-        "⚠️ OpenAI API key not found. Please add OPENAI_API_KEY to your .env file in the root directory."
-    )
-    client = None
+    st.error("⚠️ OpenAI API key not found. Please add it to Streamlit secrets or .env file.")
+    st.stop()
 else:
     client = OpenAI(api_key=api_key)
 
