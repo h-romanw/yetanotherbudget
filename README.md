@@ -141,7 +141,11 @@ Below is a walkthrough for some of the use cases and key flows through the app. 
 - I live in ____. Am I overpaying for rent?
 
 ## Budgeting
-
+1. Open the "Set Targets" page.
+2. Set an October 2025 target, and press Save Targets.
+3. Ask the AI to help with budget setting- for example, "What is a reasonable yearly budget based on my July 2025 spending?"
+4. When prompted, tell the AI to implement these targets. You may need to navigate to a different time view and then come back to see the targets refresh.
+5. Press Save Targets
 
 # 5 Troubleshooting
 ## Installation
@@ -160,4 +164,4 @@ These are some issues I ran into during my time building the app. While I did te
 **Solution** Specify an unused port for Streamlit- I usually go with `streamlit run app.py --server-port=8502` if port 5000 or 8501 (Streamlit default) aren't available.
 
 ## App features
-
+If you encounter any errors with the app's intended behaviour, the first action to take is using the Debug: Test Helper Functions section on each page. These should allow you to verify which part of the data pipeline is misbehaving.
