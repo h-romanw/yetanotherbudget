@@ -4,6 +4,9 @@
 
 Yet Another Budget is a personal finance application that analyzes spending patterns using AI. The application allows users to import financial data, view transactions, and understand their spending habits through automated categorization and analysis. The platform is built as a full-stack TypeScript application with a React frontend and Express backend.
 
+## Installation and running the app locally
+
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

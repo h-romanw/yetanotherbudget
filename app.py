@@ -29,17 +29,32 @@ st.set_page_config(
 # else:
 #     client = OpenAI(api_key=api_key)
 
-# First try Streamlit secrets (for deployed apps), then fall back to .env (for local dev)
-try:
-    api_key = st.secrets["OPENAI_API_KEY"]
-except (KeyError, FileNotFoundError):
-    api_key = os.getenv("OPENAI_API_KEY")
+# Replace your existing API key block with this
+
+# Prefer Streamlit secrets (flat key or nested table), then fall back to env var (.env/load_dotenv)
+def get_openai_api_key():
+    # 1) top-level Streamlit secret: OPENAI_API_KEY
+    api_key = st.secrets.get("OPENAI_API_KEY")
+    if api_key:
+        return api_key
+
+    # 2) nested table: [openai] api_key = "..."
+    openai_table = st.secrets.get("openai")
+    if isinstance(openai_table, dict):
+        api_key = openai_table.get("api_key")
+        if api_key:
+            return api_key
+
+    # 3) fallback to environment variable (local .env or server env)
+    return os.getenv("OPENAI_API_KEY")
+
+api_key = get_openai_api_key()
 
 if not api_key:
-    st.error("⚠️ OpenAI API key not found. Please add it to Streamlit secrets or .env file.")
+    st.error("⚠️ OpenAI API key not found. Add OPENAI_API_KEY or [openai].api_key to Streamlit Secrets or your .env file.")
     st.stop()
-else:
-    client = OpenAI(api_key=api_key)
+
+client = OpenAI(api_key=api_key)
 
 # Common spending categories (defined globally for reuse)
 CATEGORIES = [
