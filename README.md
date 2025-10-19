@@ -28,7 +28,7 @@ To run the app locally, start by cloning the main branch. Ensure that you are us
 2. Create a file in .streamlit called secrets.toml, with the following code: `OPENAI_API_KEY = <Your key here>` or, if I have provided you with a secrets.toml file separately, place it into .streamlit.
 3. Open app.py
 4. In the terminal, run the command `streamlit run app.py` and Ctrl/Cmd-Click the URL given in the terminal.
-5. Use synthetic debit card transaction data found in dummy_data for any data uploads (though 
+5. Use synthetic debit card transaction data found in dummy_data for any data uploads (though the app is capable of accepting real bank CSV statements).
 
 
 # 3 My Product Development Process
