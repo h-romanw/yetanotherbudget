@@ -1,9 +1,9 @@
 # Yet Another Budget - AI-Powered Spending Management
 # Table of Contents
 1. [Overview](#overview)
-2. [Installation and running the app locally](#installation-and-running-the-app-locally)
-- [Troubleshooting](#troubleshooting)
-3. 
+2. [Installation and running the app locally](#installation-and-running-the-app-locally) 
+3. [My Product Development Process](#my-product-development-process)
+[Troubleshooting](#troubleshooting)
 
 # Overview
 
@@ -16,7 +16,15 @@ To run the app locally, start by cloning the main branch. Ensure that you are us
 3. Open app.py
 4. In the terminal, run the command `streamlit run app.py` and Ctrl/Cmd-Click the URL given in the terminal.
 
-## Troubleshooting
+# My Product Development Process
+
+Prior to starting the actual build for this app, it was my goal to follow a user-centred product design approach building off of my postgrad education and time working in fintech. On pen and paper, I followed the below approach.
+
+## The User and the Problem
+The start to developing any new product often
+
+# Troubleshooting
+## Installation
 These are some issues I ran into during my time building the app. While I did test to ensure they should not affect local deployment before sharing, here are some common issues and solutions nonetheless:
 
 ### 1. Missing API Key
@@ -30,4 +38,6 @@ These are some issues I ran into during my time building the app. While I did te
 ### 3. Port already in use
 **Error** Address already in use or port conflict.
 **Solution** Specify an unused port for Streamlit- I usually go with `streamlit run app.py --server-port=8502` if port 5000 or 8501 (Streamlit default) aren't available.
+
+## App features
 
