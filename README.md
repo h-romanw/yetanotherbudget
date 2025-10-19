@@ -119,8 +119,29 @@ If you have read this far, thank you! My goal with this app is to implement my t
 
 
 # 4 Product Walkthrough
-## Data upload and categorisation
-- Drag and drop (or file browse) to one of the synthetic debit statements in dummy_data. Upload these and press "Categorise with AI"
+Below is a walkthrough for some of the use cases and key flows through the app. Note: I have tested YAnB with genuine bank statement data and can confirm that it works. However, I strongly advise using the provided synthetic data when connecting to the app via Streamlit cloud as saved projects are NOT private. You can also use the project titled "Test 4" for these purposes.
+
+## Upload, categorise and summarise.
+1. Drag and drop (or file browse) to one of the synthetic debit statements in dummy_data. Upload these and press "Categorise with AI."
+2. Press "Analyse Now" to receive an AI summarisation of the spending.
+3. Give the project a name and save it.
+4. Change the vendor name for one of the transactions to one that is distinct from an existing category.
+5. Expand "Manage Categories"
+6. Create a new category applicable to the new vendor name. Save this category.
+7. Press "Refresh Categorisation" to see the table update the category of the renamed transaction.
+8. Feel free to re-analyse to receive a new AI summary.
+
+## Analyse and Query
+1. Open the "Analyse" page.
+2. Explore the charts. Hover over segments in the donut chart to see a tooltip with more information.
+3. The "Spending Over Time" and "Account Balance Over Time" widgets should be empty. Navigate to July 2025 (or the Yearly or All-Time views) to see these charts populated.
+4. Ask the chatbot any questions about your uploaded transactions. It has the full behaviour of an LLM- try these questions:
+- What was my most expensive Bill & Utility?
+- How could I reduce my Shopping spending?
+- I live in ____. Am I overpaying for rent?
+
+## Budgeting
+
 
 # 5 Troubleshooting
 ## Installation
