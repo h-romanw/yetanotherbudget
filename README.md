@@ -10,7 +10,7 @@
 
 Yet Another Budget (YAnB) is project-based, AI-powered spending analyser and budgeting tool for young professionals, small businesses and project planners. YAnB allows users to upload spending data and have their transactions automatically categorised by AI, as well as generate a written summary of their spending behaviour and basic charts. Users can then use an integrated chatbot to query the data further, as well as see visualisations of their spending by category and net balance over time. Finally, users can set spending targets for categories at different time horizons, or have the chatbot suggest and implement budgets in the GUI for them based on uploaded data and expressed preferences.
 
-At the core of YAnB are projects, which aim to deliver the feature depth of more complex budgeting toos with the flexibility to meet a wider range of real-world use cases. A project is simply a running balance sheet of uploaded transactions, with relevant categories, budget targets/timeframes, and chat history saved alongside. A project could be:
+At the core of YAnB are projects, which aim to deliver the feature depth of more complex budgeting tools with the flexibility to meet a wider range of real-world use cases. A project is simply a running balance sheet of uploaded transactions, with relevant categories, budget targets/timeframes, and chat history saved alongside. A project could be:
 - A bank account.
 - A fixed-term event or period with expected spend amounts across different categories.
 - A new business venture.
