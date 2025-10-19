@@ -37,20 +37,19 @@ To run the app locally, start by cloning the main branch. Ensure that you are us
 Prior to starting the actual build for this app, it was my goal to follow a user-centred product design approach building off of my postgrad education and time working in fintech. Often using pen and paper, I followed the below approach.
 
 ## 3.1 The user and product strategy
-I started this project by identifying a niche within the broader category of people who use budgeting apps. From my personal experience, I found that many spending analysis/budgeting apps struggle to balance flexibility with usability, either offering deep data-based customisation but sacraficing rigidity in UX or opting for ease-of-use but limiting functionality to simple graph-based summarisation. I was particularly influenced by two back-to-back conversations with my partner, with whom I had recently opened a Monzo joint account. In summary, the two conversations were:
-- We were beginning to plan for our wedding, but were finding that no budgeting tools currently available allowed us to integrate a fixed-term, project-based budget with our exisiting bank-account-based budgeting.
-- Having just started working for an events agency, she was surprised that her business relied predominantly on spreadsheets to manage the budgets and balances available to their clients. This created additional overhead and made cooperation more cumbersome.
+I started this project by identifying a niche within the broader category of people who use budgeting apps. From my personal experience, I found that many spending analysis/budgeting apps struggle to balance flexibility with usability, either offering deep data-based customisation but sacraficing rigidity in UX or opting for ease-of-use but limiting functionality to simple graph-based summarisation. I was particularly influenced by two conversations:
+- My partner and I were beginning to plan for our wedding, but were finding that no budgeting tools currently available allowed us to integrate a fixed-term, project-based budget with our exisiting bank-account-based budgeting.
+- A friend of mine, who recently started working at an agency, was surprised that his business relied predominantly on spreadsheets to manage the budgets and balances available to their clients. This created additional overhead and made cooperation more cumbersome.
 
-Based on these, I felt inspired to create a webapp that could tackle the problems faced by both users. Additionally, my time working in fintech had taught me the value of integrating a B2B/SaaS-first business model with D2C offerings; by working closely with other businesses (hypothetically, this could be my partner's events agency) to build services that meet their needs, the cost of building features for D2C app releases can be subsidised by B2B contracts. 
+Based on these, I felt inspired to create a webapp that could tackle the problems faced by both users. Additionally, my time working in fintech had taught me the value of integrating a B2B/SaaS-first business model with D2C offerings; by working closely with other businesses (hypothetically, this could be my friend's agency) to build services that meet their needs, the cost of building features for D2C app releases can be subsidised by B2B contracts. 
 
 ### 3.1.1 Other apps and YAnB USPs
-When designing Yet Another Budget, there were two apps that I used to determine existing pain-points and feature opportunities: Monzo and You Need A Budget (YNAB)*. The former is quite easy to use, making it simple to set budget categories and targets; it is limited, however, in it's ability to integrate multiple accounts at a time, which can become cumbersome when different accounts have different purposes and so need different category targets. This was the case with my partner and I, who rely on a Monzo joint for basic expenses and our personal accounts for transport, etc.
+When designing Yet Another Budget, there were two apps that I used to determine existing pain-points and feature opportunities: Monzo and You Need A Budget (YNAB). The former is quite easy to use, making it simple to set budget categories and targets; it is limited, however, in it's ability to integrate multiple accounts at a time, which can become cumbersome when different accounts have different purposes and so need different category targets. This was the case with my partner and I, who rely on a Monzo joint for basic expenses and our personal accounts for transport, etc.
 
 YNAB, on the other hand, has sophisticated, zero-based budgeting tools with a wider range of customisation and tracking over time. The downside? YNAB has a steep learning curve and can become very rigid, with users online (my own experience corroborating) expressing frustration with a perceived lack of control over the system.
 
 The pain-points I personally experienced with both of these combined with those I discovered online led me to develop the project-based budgeting idea further; I realised that zero-based budgeting, while effective, can be difficult to manage across multiple accounts and is challenging to adapt to in real life. Instead, giving users the greatest flexibility at the project level, rather than at the category level, could allow them to more easily reflect their real-world behaviour in their budgets. In doing that, I hoped that effective use of data visualisation and AI-based coaching would make it more likely for users to implement changes to their spending behaviour in the long-run.
 
-*_Yes, Yet Another Budget (YAnB) is indeed my poor attempt at wordplay based off of YNAB. I kindly ask that you forgive this attempt at product-name-based humour._
 
 ## 3.2 Planning
 ### 3.2.1 MoSCoW
@@ -67,7 +66,7 @@ The pain-points I personally experienced with both of these combined with those 
 
 | **Could** | **Won't**|
 |----------|--------|
-|React FE + Flask BE, Node.js                                   | Flutter mobile                                         |
+|React FE + Flask BE, Node.js | Flutter mobile  |
 |Login state | Openbanking/Truelayer integration |
 |PostgreSQL database | Credit scoring |
 |Budget export | Hard-code |
@@ -111,11 +110,11 @@ Crucially, the joint B2B/SaaS and D2C product strategy required a widget-based d
 With designs in place, I created a formal Kanban board of features (again on pen and paper), allowing me to track progress across multiple tasks and organise features in order of priority and dependency.
 
 ## 3.5 Stagegating and final decisions
-As the week of development went by, I included various stagegates to determine whether progress to implementing different groups of features would be appropriate. By the end of the week the Streamlit app was feature complete, but I was faced with the choice between testing and attempting to migrate to my desired React - Flask architecture. I ultimately chose not to proceed with the latter, as I wasn't comfortable with the risk of delivering a poorly-funcitoning product (though the intitial steps towards this can be found in the `experimental` branch of the repo). 
+As the week of development went by, I included various stagegates to determine whether to progress to a further stage of feature implementation. By the end of the week the Streamlit app was feature complete, but I was faced with the choice between testing and attempting to migrate to my desired React - Flask architecture. I ultimately chose not to proceed with the latter, as I wasn't comfortable with the risk of delivering a poorly-functioning product (though the intitial steps towards this can be found in the `experimental` branch of the repo). 
 Though Replit offers the ability to host webapps through their service, I opted to do so through Streamlit for simplicity.
 
 ## 3.6 Next steps
-If you have read this far, thank you! My goal with this app is to implement my target architecture, not just for the additional UX flexibility but so that I could implement some of the features in the "Could" section (e.g. PostgreSQL database, login states, etc.). For now, I am excited to share this feature-complete prototype version of Yett Another Budget with you!
+If you have read this far, thank you! My goal with this app is to implement my target architecture, not just for the additional UX flexibility but so that I could implement some of the features in the "Could" section (e.g. PostgreSQL database, login states, etc.). For now, I am excited to share this feature-complete prototype version of Yet Another Budget with you!
 
 
 # 4 Product Walkthrough
