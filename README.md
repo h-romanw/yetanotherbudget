@@ -17,7 +17,7 @@ At the core of YAnB are projects, which aim to deliver the feature depth of more
 - A dependent or family member's expenses for which the user is responsible.
 - A marketing campaign for a product launch.
 - A running tally of shared expenses among friends.
-- ...or anything else, really!
+- ...or anything else you could want them to be, really!
 
 Projects integrate seamlessly with the AI features, allowing the AI chat to act as a spending summariser and financial coach in setting targets, determining appropriate categories and assigning transactions to them.
 
@@ -48,14 +48,45 @@ When designing Yet Another Budget, there were two apps that I used to determine 
 
 YNAB, on the other hand, has sophisticated, zero-based budgeting tools with a wider range of customisation and tracking over time. The downside? YNAB has a steep learning curve and can become very rigid, with users online (my own experience corroborating) expressing frustration with a perceived lack of control over the system.
 
-
+The pain-points I personally experienced with both of these combined with those I discovered online led me to develop the project-based budgeting idea further; I realised that zero-based budgeting, while effective, can be difficult to manage across multiple accounts and is challenging to adapt to in real life. Instead, giving users the greatest flexibility at the project level, rather than at the category level, could allow them to more easily reflect their real-world behaviour in their budgets. In doing that, I hoped that effective use of data visualisation and AI-based coaching would make it more likely for users to implement changes to their spending behaviour in the long-run.
 
 *_Yes, Yet Another Budget (YAnB) is indeed my poor attempt at wordplay based off of YNAB. I kindly ask that you forgive this attempt at product-name-based humour._
 
-## 3.2 MoSCoW feature planning
+## 3.2 Planning
 ### 3.2.1 MoSCoW
+| **Must** | **Should** |
+|----------|------------|
+|Live webapp  | Easy-to-use UX/UI  |
+|Dummy data   | Non zero-budgeting |
+|Multiple visualisations with different purposes | Natural-language budget generation and implementation |
+|AI data organisation from CSV import | AI spending summary |
+|Friendly, financial coach AI ToV | Category creation and targets |
+|AI spending categorisation | Spending data = golden source-of-truth |
+|Projects | Project-level data storage of categories, targets, etc.|
+| Streamlit POC | Streamlit Prototype |
+
+| **Could** | **Won't**|
+|----------|--------|
+|React FE + Flask BE, Node.js                                   | Flutter mobile                                         |
+|Login state | Openbanking/Truelayer integration |
+|Budget export | Hard-code |
+
+In addition to all of these, there was the consideration of my experience. I am comfortable with Python, using it and Jupyter Notebook frequently in my work for data analysis.
+Despite my UX design training, I was less familiar with CSS and HTML, and had no experience with JavaScript. These led me to settle on using Streamlit for my prototype, as it would allow me to build a webapp in Python while learning more about CSS and HTML. Additionally, I relied on Replit (a co-worker's recommendation) and Github Co-Pilot to vibe code much of the final product and deliver the whole thing in a ~1-week period. I set a stretch target to migrate my Streamlit app to a Python backend (via Flask) and React frontend, which would give me greater flexibility over the look-and-feel defined by my designs.
+
 ### 3.2.2 Resources
+Based on the MoSCoW analysis, I created a short list of resources I would need to be able to execute the project. These included:
+- Replit / Github Co-Pilot for agentic AI and vibe-coding.
+- OpenAI API, for the core AI functionality in the app itself.
+- Figma, for my designs.
+- Streamlit, to build a Proof-of-Concept and then feature-complete webapp.
+- HuggingFace for any other AI functionality needs (not used in the end).
+- Innumerable sticky notes, notebook pages and pen ink cartridges.
+
+
 ### 3.2.3 Estimation and Kanban
+Having established what I needed to do and the tools I would need to do so, I created a 1-week Kanban board with stages,  timelines (estimated) and progress check-ins, allowing me to quickly change focus and reprioritise parts of the project based on what I had achieved throughout different stages of the week. 
+
 
 ## 3.3 UX design with Figma
 <img width="2880" height="2048" alt="image" src="https://github.com/user-attachments/assets/6085bfd2-abc2-46ee-b425-179bc60a61fc" />
