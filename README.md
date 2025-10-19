@@ -69,6 +69,7 @@ The pain-points I personally experienced with both of these combined with those 
 |----------|--------|
 |React FE + Flask BE, Node.js                                   | Flutter mobile                                         |
 |Login state | Openbanking/Truelayer integration |
+|PostgreSQL database | Credit scoring |
 |Budget export | Hard-code |
 
 In addition to all of these, there was the consideration of my experience. I am comfortable with Python, using it and Jupyter Notebook frequently in my work for data analysis.
@@ -84,19 +85,36 @@ Based on the MoSCoW analysis, I created a short list of resources I would need t
 - Innumerable sticky notes, notebook pages and pen ink cartridges.
 
 
-### 3.2.3 Estimation and Kanban
-Having established what I needed to do and the tools I would need to do so, I created a 1-week Kanban board with stages,  timelines (estimated) and progress check-ins, allowing me to quickly change focus and reprioritise parts of the project based on what I had achieved throughout different stages of the week. 
+### 3.2.3 Estimation and Gantt Chart
+Having established what I needed to do and the tools I would need to do so, I created a 1-week Gantt chart with stages,  timelines (estimated) and progress check-ins, allowing me to quickly change focus and reprioritise parts of the project based on what I had achieved throughout different stages of the week. 
 
 
-## 3.3 UX design with Figma
+## 3.3 UX and product design
+### 3.3.1 Flows and Jobs-to-be-Done
+Returning to my target users, I identified the core jobs-to-be-done (JTBD) that they would use the app for. At this stage, the features I had defined in the MoSCoW analysis suggested a three-page webapp structure, which I then used to define the key user flows for these JTBD. The jobs and flows were:
+1. Importing and categorising data (+ generating a high-level text and visual summary of overall spending behaviour).
+2. Querying the data in more detail using both visualisations and chatbot conversations.
+3. Appending new data and modifying existing transactions.
+4. Creating, renaming and deleting categories.
+5. Setting category targets at different time frames, based on the project needs (monthly, yearly or all-time for a fixed-duration project).
+6. Reviewing AI analysis and asking for help setting targets based on desired behavioural changes and preferences.
+
+### 3.3.2 Figma designs
 <img width="2880" height="2048" alt="image" src="https://github.com/user-attachments/assets/6085bfd2-abc2-46ee-b425-179bc60a61fc" />
 [My Figma design file can be found here](https://www.figma.com/design/Q7xI5WTuwnrUUFfF5wCmVp/YAnB-Designs?node-id=0-1&t=NP5KkBi38aNzWolN-1)
+These flows suggested a structure to the three pages, which I implemented in Figma wireframes. This stage also allowed me to start defining the look of basic components, their behaviour and a font and colour library.
+Crucially, the joint B2B/SaaS and D2C product strategy required a widget-based design. This would allow simple and easy customisation of the product for different businesses' use cases, with widgets being largely self-contained.
 
 ## 3.4 Feature backlog and execution
+With designs in place, I created a formal Kanban board of features (again on pen and paper), allowing me to track progress across multiple tasks and organise features in order of priority and dependency.
 
 ## 3.5 Stagegating and final decisions
+As the week of development went by, I included various stagegates to determine whether progress to implementing different groups of features would be appropriate. By the end of the week the Streamlit app was feature complete, but I was faced with the choice between testing and attempting to migrate to my desired React - Flask architecture. I ultimately chose not to proceed with the latter, as I wasn't comfortable with the risk of delivering a poorly-funcitoning product (though the intitial steps towards this can be found in the `experimental` branch of the repo). 
+Though Replit offers the ability to host webapps through their service, I opted to do so through Streamlit for simplicity.
 
 ## 3.6 Next steps
+If you have read this far, thank you! My goal with this app is to implement my target architecture, not just for the additional UX flexibility but so that I could implement some of the features in the "Could" section (e.g. PostgreSQL database, login states, etc.). For now, I am excited to share this feature-complete prototype version of Yett Another Budget with you!
+
 
 # 4 Product Walkthrough
 
