@@ -3,13 +3,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from openai import OpenAI
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import json
 import os
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
-load_dotenv()
+# load_dotenv()
 
 st.set_page_config(
     page_title="Yet Another Budget",
