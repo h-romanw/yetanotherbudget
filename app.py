@@ -1822,9 +1822,9 @@ if st.session_state.current_page == "summarize":
 
         # Step 1: Categorization
         if not st.session_state.categorized:
-            st.info("🤖 Ready to categorize transactions with AI")
+            st.info("🤖 Ready to categorise transactions with AI")
 
-            if st.button("Categorize with AI", type="primary"):
+            if st.button("Categorise with AI", type="primary"):
                 with st.spinner("Categorizing transactions..."):
                     # Only categorize (no summary yet)
                     categorized_df = categorize_transactions(df.copy())
