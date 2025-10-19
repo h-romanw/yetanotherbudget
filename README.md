@@ -38,12 +38,19 @@ Prior to starting the actual build for this app, it was my goal to follow a user
 
 ## 3.1 The user and product strategy
 I started this project by identifying a niche within the broader category of people who use budgeting apps. From my personal experience, I found that many spending analysis/budgeting apps struggle to balance flexibility with usability, either offering deep data-based customisation but sacraficing rigidity in UX or opting for ease-of-use but limiting functionality to simple graph-based summarisation. I was particularly influenced by two back-to-back conversations with my partner, with whom I had recently opened a Monzo joint account. In summary, the two conversations were:
-- We were beginning to plan for our wedding, but were finding that no budgeting tools currently available allowed us to integrate a project-based budget with our exisiting bank-account-based budgeting.
+- We were beginning to plan for our wedding, but were finding that no budgeting tools currently available allowed us to integrate a fixed-term, project-based budget with our exisiting bank-account-based budgeting.
 - Having just started working for an events agency, she was surprised that her business relied predominantly on spreadsheets to manage the budgets and balances available to their clients. This created additional overhead and made cooperation more cumbersome.
 
-Based on these, I felt inspired 
+Based on these, I felt inspired to create a webapp that could tackle the problems faced by both users. Additionally, my time working in fintech had taught me the value of integrating a B2B/SaaS-first business model with D2C offerings; by working closely with other businesses (hypothetically, this could be my partner's events agency) to build services that meet their needs, the cost of building features for D2C app releases can be subsidised by B2B contracts. 
 
 ### 3.1.1 Other apps and YAnB USPs
+When designing Yet Another Budget, there were two apps that I used to determine existing pain-points and feature opportunities: Monzo and You Need A Budget (YNAB)*. The former is quite easy to use, making it simple to set budget categories and targets; it is limited, however, in it's ability to integrate multiple accounts at a time, which can become cumbersome when different accounts have different purposes and so need different category targets. This was the case with my partner and I, who rely on a Monzo joint for basic expenses and our personal accounts for transport, etc.
+
+YNAB, on the other hand, has sophisticated, zero-based budgeting tools with a wider range of customisation and tracking over time. The downside? YNAB has a steep learning curve and can become very rigid, with users online (my own experience corroborating) expressing frustration with a perceived lack of control over the system.
+
+
+
+*_Yes, Yet Another Budget (YAnB) is indeed my poor attempt at wordplay based off of YNAB. I kindly ask that you forgive this attempt at product-name-based humour._
 
 ## 3.2 MoSCoW feature planning
 ### 3.2.1 MoSCoW
