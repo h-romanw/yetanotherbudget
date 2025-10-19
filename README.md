@@ -101,7 +101,9 @@ Returning to my target users, I identified the core jobs-to-be-done (JTBD) that 
 
 ### 3.3.2 Figma designs
 <img width="2880" height="2048" alt="image" src="https://github.com/user-attachments/assets/6085bfd2-abc2-46ee-b425-179bc60a61fc" />
+
 [My Figma design file can be found here](https://www.figma.com/design/Q7xI5WTuwnrUUFfF5wCmVp/YAnB-Designs?node-id=0-1&t=NP5KkBi38aNzWolN-1)
+
 These flows suggested a structure to the three pages, which I implemented in Figma wireframes. This stage also allowed me to start defining the look of basic components, their behaviour and a font and colour library.
 Crucially, the joint B2B/SaaS and D2C product strategy required a widget-based design. This would allow simple and easy customisation of the product for different businesses' use cases, with widgets being largely self-contained.
 
@@ -117,7 +119,8 @@ If you have read this far, thank you! My goal with this app is to implement my t
 
 
 # 4 Product Walkthrough
-
+## Data upload and categorisation
+- Drag and drop (or file browse) to one of the synthetic debit statements in dummy_data. Upload these and 
 
 # 5 Troubleshooting
 ## Installation
