@@ -65,6 +65,27 @@ COLOR_PALETTE = [
 ]
 
 
+def clean_dataframe_for_json(df):
+    """
+    Clean DataFrame for JSON serialization while preserving data types.
+    Replaces NaN values appropriately based on column type.
+    """
+    if df is None:
+        return df
+    
+    df_clean = df.copy()
+    
+    for col in df_clean.columns:
+        if df_clean[col].dtype in ['float64', 'int64']:
+            # For numeric columns, replace NaN with 0
+            df_clean[col] = df_clean[col].fillna(0)
+        else:
+            # For string columns, replace NaN with empty string
+            df_clean[col] = df_clean[col].fillna('')
+    
+    return df_clean
+
+
 def get_all_categories():
     """Get combined list of default + custom categories"""
     return CATEGORIES + st.session_state.get('custom_categories', [])
@@ -583,7 +604,7 @@ def load_project(project_name):
         
         df = pd.DataFrame(data['transactions'])
         # Clean any NaN values that might have been saved
-        df = df.fillna('')
+        df = clean_dataframe_for_json(df)
         
         # Reset to clean state first to ensure project isolation
         st.session_state.targets = {
@@ -1198,6 +1219,18 @@ st.markdown("""
         color: white !important;
     }
 
+            
+    /* ========================================
+   MANAGE CATEGORIES EXPANDER (SIDEBAR ONLY)
+   ======================================== */
+            
+    /* Expander in sidebar only */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        background-color: #F8F8F8 !important;
+        border-radius: 10px !important;
+        border: 1px solid #52181E !important;
+        padding: 0 !important   
+    }
 </style>
 """,
             unsafe_allow_html=True)
@@ -1315,7 +1348,7 @@ with st.sidebar:
                     else:
                         st.success(f"✅ Added {len(df)} new transactions")
                         # Clean NaN values before storing
-                        combined_df = combined_df.fillna('')
+                        combined_df = clean_dataframe_for_json(combined_df)
                         st.session_state.transactions = combined_df
                         st.session_state.categorized = True
                         st.session_state.current_page = "summarize"
@@ -1323,7 +1356,7 @@ with st.sidebar:
                 else:
                     st.success(f"✅ Parsed {len(df)} transactions")
                     # Clean NaN values before storing
-                    df = df.fillna('')
+                    df = clean_dataframe_for_json(df)
                     st.session_state.transactions = df
                     st.session_state.current_page = "summarize"
                     st.rerun()
@@ -1599,7 +1632,7 @@ if st.session_state.current_page == "summarize":
                         st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
                                   (" (with balance tracking)" if 'balance' in df.columns else ""))
                         # Clean NaN values before storing
-                        combined_df = combined_df.fillna('')
+                        combined_df = clean_dataframe_for_json(combined_df)
                         st.session_state.transactions = combined_df
                         st.session_state.categorized = True
                         st.rerun()
@@ -1607,7 +1640,7 @@ if st.session_state.current_page == "summarize":
                     st.success(f"✅ Successfully parsed {len(df)} transactions" + 
                               (" (with balance tracking)" if 'balance' in df.columns else ""))
                     # Clean NaN values before storing
-                    df = df.fillna('')
+                    df = clean_dataframe_for_json(df)
                     st.session_state.transactions = df
                     st.rerun()
     
@@ -1666,7 +1699,7 @@ if st.session_state.current_page == "summarize":
             )
 
             # Clean any NaN values before displaying in data editor
-            df_clean = df.fillna('')
+            df_clean = clean_dataframe_for_json(df)
             
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
