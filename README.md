@@ -120,7 +120,7 @@ If you have read this far, thank you! My goal with this app is to implement my t
 
 # 4 Product Walkthrough
 ## Data upload and categorisation
-- Drag and drop (or file browse) to one of the synthetic debit statements in dummy_data. Upload these and 
+- Drag and drop (or file browse) to one of the synthetic debit statements in dummy_data. Upload these and press "Categorise with AI"
 
 # 5 Troubleshooting
 ## Installation
