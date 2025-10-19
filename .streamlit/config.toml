@@ -1,7 +1,14 @@
+[global]
+# Use polling watcher to avoid inotify instance limits on the host
+fileWatcherType = "polling"
+
 [server]
+# For cloud deployments:
 headless = true
+enableCORS = false
 address = "0.0.0.0"
-port = 5000
+# DO NOT hardcode port; let the platform use its PORT (Streamlit Cloud probes 8501)
+# port = 5000   # <- remove any explicit port lines
 
 [theme]
 base = "light"
