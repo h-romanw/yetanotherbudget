@@ -31,7 +31,7 @@ st.set_page_config(
 
 # Replace your existing API key block with this
 
-# Prefer Streamlit secrets (flat key or nested table), then fall back to environment
+# Prefer Streamlit secrets (flat key or nested table), then fall back to env var (.env/load_dotenv)
 def get_openai_api_key():
     # 1) top-level Streamlit secret: OPENAI_API_KEY
     api_key = st.secrets.get("OPENAI_API_KEY")
@@ -45,13 +45,13 @@ def get_openai_api_key():
         if api_key:
             return api_key
 
-    # 3) fallback to environment variable (local .env via load_dotenv() or server env)
+    # 3) fallback to environment variable (local .env or server env)
     return os.getenv("OPENAI_API_KEY")
 
 api_key = get_openai_api_key()
 
 if not api_key:
-    st.error("⚠️ OpenAI API key not found. Please add it to Streamlit secrets (OPENAI_API_KEY or [openai].api_key) or your .env file.")
+    st.error("⚠️ OpenAI API key not found. Add OPENAI_API_KEY or [openai].api_key to Streamlit Secrets or your .env file.")
     st.stop()
 
 client = OpenAI(api_key=api_key)
