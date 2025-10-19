@@ -17,14 +17,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
     menu_items=None,
-    # theme paramater doesn't work in Replit. See .streamlit/config.toml for theme parameters.
-    # theme={
-    #    "base": "light",
-    #    "primaryColor": "#832632",
-    #    "backgroundColor": "#f5f5f5",
-    #    "secondaryBackgroundColor": "#e2999b",
-    #    "textColor": "#52181e"
-    #}
 )
 
 # Check for OpenAI API key
@@ -65,9 +57,177 @@ COLOR_PALETTE = [
 ]
 
 
+def clean_dataframe_for_json(df):
+    """
+    Clean DataFrame for JSON serialization while preserving data types.
+    Replaces NaN values appropriately based on column type.
+    """
+    if df is None:
+        return df
+    
+    df_clean = df.copy()
+    
+    # Replace infinite values first
+    df_clean = df_clean.replace([float('inf'), float('-inf')], 0)
+    
+    for col in df_clean.columns:
+        # Check if column is numeric
+        if pd.api.types.is_numeric_dtype(df_clean[col]):
+            # For numeric columns, replace NaN with 0
+            df_clean[col] = df_clean[col].fillna(0)
+            # Convert to standard float or int
+            if df_clean[col].dtype in ['Float64', 'Int64']:
+                df_clean[col] = df_clean[col].astype('float64')
+        else:
+            # For non-numeric columns, replace NaN with empty string
+            df_clean[col] = df_clean[col].fillna('')
+            # Ensure it's a string type
+            df_clean[col] = df_clean[col].astype(str)
+    
+    # Final safety: replace any remaining NaN values
+    df_clean = df_clean.fillna(0)
+    
+    return df_clean
+
+
 def get_all_categories():
     """Get combined list of default + custom categories"""
-    return CATEGORIES + st.session_state.get('custom_categories', [])
+    custom = st.session_state.get('custom_categories', [])
+    # Ensure all categories are strings
+    all_cats = CATEGORIES + [str(cat) for cat in custom if cat]
+    # Remove any empty strings or NaN
+    return [cat for cat in all_cats if cat and str(cat) != 'nan']
+
+
+def sync_categories_from_dataframe(df):
+    """Detect and add any categories from the DataFrame that aren't in the category lists"""
+    if df is None or 'category' not in df.columns:
+        return
+    
+    # Get unique categories from the DataFrame
+    df_categories = df['category'].unique().tolist()
+    
+    # Get current category lists
+    all_current = get_all_categories()
+    
+    # Find categories in DataFrame that aren't registered
+    new_categories = []
+    for cat in df_categories:
+        if cat and cat not in all_current:
+            new_categories.append(cat)
+    
+    # Add new categories to custom categories list
+    if new_categories:
+        if 'custom_categories' not in st.session_state:
+            st.session_state.custom_categories = []
+        
+        for cat in new_categories:
+            if cat not in st.session_state.custom_categories:
+                st.session_state.custom_categories.append(cat)
+                # Auto-assign color
+                assign_color_to_category(cat)
+
+
+def get_display_name(category):
+    """
+    Get the display name for a category (alias if exists, otherwise original name).
+    This allows project-specific renaming of default categories.
+    """
+    if 'category_aliases' not in st.session_state:
+        return category
+    return st.session_state.category_aliases.get(category, category)
+
+
+def get_original_name(display_name):
+    """
+    Get the original category name from a display name.
+    Does reverse lookup in the aliases dictionary.
+    """
+    if 'category_aliases' not in st.session_state:
+        return display_name
+    
+    # Check if it's an alias (reverse lookup)
+    for original, alias in st.session_state.category_aliases.items():
+        if alias == display_name:
+            return original
+    
+    # Not an alias, return as-is
+    return display_name
+
+
+def set_category_alias(original_name, alias_name):
+    """
+    Set a project-specific alias for a category.
+    
+    Args:
+        original_name: The original category name
+        alias_name: The new display name (alias)
+    
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        if 'category_aliases' not in st.session_state:
+            st.session_state.category_aliases = {}
+        
+        # Validate alias name
+        if not alias_name or not alias_name.strip():
+            return False, "Alias name cannot be empty"
+        
+        alias_name = alias_name.strip().title()
+        
+        # Check if this alias already exists for a different category
+        for orig, existing_alias in st.session_state.category_aliases.items():
+            if existing_alias.lower() == alias_name.lower() and orig != original_name:
+                return False, f"Name '{alias_name}' is already used for category '{orig}'"
+        
+        # Check if alias conflicts with existing category names
+        all_cats = get_all_categories()
+        if alias_name.lower() in [c.lower() for c in all_cats if c != original_name]:
+            return False, f"Name '{alias_name}' conflicts with an existing category"
+        
+        # Set or update the alias
+        st.session_state.category_aliases[original_name] = alias_name
+        
+        # Save to project if one is loaded
+        if st.session_state.current_project and st.session_state.current_project != "Current Session":
+            if st.session_state.transactions is not None:
+                save_project(st.session_state.current_project, st.session_state.transactions)
+        
+        return True, f"Successfully set alias: '{original_name}' → '{alias_name}'"
+        
+    except Exception as e:
+        return False, f"Error setting alias: {str(e)}"
+
+
+def remove_category_alias(original_name):
+    """
+    Remove an alias for a category, reverting to the original name.
+    
+    Args:
+        original_name: The original category name
+    
+    Returns:
+        (success: bool, message: str)
+    """
+    try:
+        if 'category_aliases' not in st.session_state:
+            return False, "No aliases set"
+        
+        if original_name in st.session_state.category_aliases:
+            alias = st.session_state.category_aliases.pop(original_name)
+            
+            # Save to project if one is loaded
+            if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                if st.session_state.transactions is not None:
+                    save_project(st.session_state.current_project, st.session_state.transactions)
+            
+            return True, f"Removed alias '{alias}', reverted to '{original_name}'"
+        else:
+            return False, f"No alias set for '{original_name}'"
+            
+    except Exception as e:
+        return False, f"Error removing alias: {str(e)}"
 
 
 def assign_color_to_category(category):
@@ -202,6 +362,70 @@ def get_target_progress(df, period_type: str, period_key: str, targets: dict) ->
         }
     
     return progress
+
+
+def get_prev_period(period_key: str, period_type: str) -> str:
+    """
+    Get the previous period based on the current period and type.
+    
+    Args:
+        period_key: Current period (e.g., 'July 2025', '2025', 'All Time')
+        period_type: 'monthly' | 'yearly' | 'alltime'
+    
+    Returns:
+        Previous period string
+    """
+    if period_type == 'alltime':
+        return 'All Time'
+    
+    if period_type == 'yearly':
+        try:
+            year = int(period_key)
+            return str(year - 1)
+        except (ValueError, TypeError):
+            return period_key
+    
+    if period_type == 'monthly':
+        try:
+            date_obj = datetime.strptime(period_key, '%B %Y')
+            prev_month = date_obj - relativedelta(months=1)
+            return prev_month.strftime('%B %Y')
+        except (ValueError, TypeError):
+            return period_key
+    
+    return period_key
+
+
+def get_next_period(period_key: str, period_type: str) -> str:
+    """
+    Get the next period based on the current period and type.
+    
+    Args:
+        period_key: Current period (e.g., 'July 2025', '2025', 'All Time')
+        period_type: 'monthly' | 'yearly' | 'alltime'
+    
+    Returns:
+        Next period string
+    """
+    if period_type == 'alltime':
+        return 'All Time'
+    
+    if period_type == 'yearly':
+        try:
+            year = int(period_key)
+            return str(year + 1)
+        except (ValueError, TypeError):
+            return period_key
+    
+    if period_type == 'monthly':
+        try:
+            date_obj = datetime.strptime(period_key, '%B %Y')
+            next_month = date_obj + relativedelta(months=1)
+            return next_month.strftime('%B %Y')
+        except (ValueError, TypeError):
+            return period_key
+    
+    return period_key
 
 
 # Smart CSV parser using AI to identify columns
@@ -365,6 +589,7 @@ def save_project(project_name, transactions_df):
             'targets': st.session_state.targets,
             'custom_categories': st.session_state.get('custom_categories', []),
             'category_colors': st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy()),
+            'category_aliases': st.session_state.get('category_aliases', {}),
             'chat_messages': st.session_state.get('chat_messages', [])
         }
         
@@ -386,6 +611,8 @@ def load_project(project_name):
             data = json.load(f)
         
         df = pd.DataFrame(data['transactions'])
+        # Clean any NaN values that might have been saved
+        df = clean_dataframe_for_json(df)
         
         # Reset to clean state first to ensure project isolation
         st.session_state.targets = {
@@ -396,6 +623,7 @@ def load_project(project_name):
         st.session_state.chat_messages = []
         st.session_state.custom_categories = []
         st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+        st.session_state.category_aliases = {}
         
         # Load project-specific targets if they exist
         if 'targets' in data:
@@ -412,6 +640,13 @@ def load_project(project_name):
         # Load project-specific category colors if they exist
         if 'category_colors' in data:
             st.session_state.category_colors = data['category_colors']
+        
+        # Load project-specific category aliases if they exist
+        if 'category_aliases' in data:
+            st.session_state.category_aliases = data['category_aliases']
+        
+        # Sync categories from DataFrame (in case manual edits added new ones)
+        sync_categories_from_dataframe(df)
         
         return df, None
     except Exception as e:
@@ -469,6 +704,9 @@ def append_to_project(project_name, new_transactions_df):
         # Remove duplicates based on date, payee, and amount
         combined_df = combined_df.drop_duplicates(subset=['date', 'payee', 'amount'], keep='first')
         
+        # Sync categories from the combined dataframe
+        sync_categories_from_dataframe(combined_df)
+        
         # Save back to project
         success, result = save_project(project_name, combined_df)
         if success:
@@ -497,6 +735,7 @@ def save_targets_to_project(project_name):
         data['chat_messages'] = st.session_state.get('chat_messages', [])
         data['custom_categories'] = st.session_state.get('custom_categories', [])
         data['category_colors'] = st.session_state.get('category_colors', DEFAULT_CATEGORY_COLORS.copy())
+        data['category_aliases'] = st.session_state.get('category_aliases', {})
         
         # Write back to file
         with open(filename, 'w') as f:
@@ -526,6 +765,81 @@ def update_targets_and_save(period_type, period_key, category, amount):
         return False
 
 
+def rename_category(old_name, new_name):
+    """
+    Rename a category across all data structures:
+    1. custom_categories list
+    2. category_colors dict
+    3. transactions DataFrame
+    4. targets (all period types)
+    5. Save to current project
+    
+    Returns: (success: bool, message: str, affected_counts: dict)
+    """
+    try:
+        # Validate new name
+        if not new_name or not new_name.strip():
+            return False, "Category name cannot be empty", {}
+        
+        new_name = new_name.strip().title()
+        
+        # Check if new name already exists (case-insensitive)
+        all_cats = get_all_categories()
+        if new_name.lower() in [c.lower() for c in all_cats if c.lower() != old_name.lower()]:
+            return False, f"Category '{new_name}' already exists", {}
+        
+        # Track what was affected
+        affected = {
+            'transactions': 0,
+            'targets': 0,
+            'custom_categories': False,
+            'colors': False
+        }
+        
+        # 1. Update custom_categories list
+        if old_name in st.session_state.custom_categories:
+            idx = st.session_state.custom_categories.index(old_name)
+            st.session_state.custom_categories[idx] = new_name
+            affected['custom_categories'] = True
+        
+        # 2. Update category_colors dict
+        if old_name in st.session_state.category_colors:
+            st.session_state.category_colors[new_name] = st.session_state.category_colors.pop(old_name)
+            affected['colors'] = True
+        
+        # 3. Update transactions DataFrame
+        if st.session_state.transactions is not None and 'category' in st.session_state.transactions.columns:
+            mask = st.session_state.transactions['category'] == old_name
+            affected['transactions'] = mask.sum()
+            st.session_state.transactions.loc[mask, 'category'] = new_name
+        
+        # 4. Update targets (all period types)
+        for period_type in ['monthly', 'yearly', 'alltime']:
+            for period_key, period_targets in st.session_state.targets[period_type].items():
+                if old_name in period_targets:
+                    period_targets[new_name] = period_targets.pop(old_name)
+                    affected['targets'] += 1
+        
+        # 5. Clear any widget states that might reference the old category name
+        # (This prevents issues with input fields on Page 3)
+        keys_to_delete = [key for key in st.session_state.keys() if old_name in str(key)]
+        for key in keys_to_delete:
+            if key.startswith('target_') or key.startswith('rename_') or key.startswith('delete_'):
+                del st.session_state[key]
+        
+        # 6. Save to current project
+        if st.session_state.current_project and st.session_state.current_project != "Current Session":
+            if st.session_state.transactions is not None:
+                success, error = save_project(st.session_state.current_project, st.session_state.transactions)
+                if not success:
+                    return False, f"Failed to save changes: {error}", affected
+        
+        return True, f"Successfully renamed '{old_name}' to '{new_name}'", affected
+        
+    except Exception as e:
+        return False, f"Error renaming category: {str(e)}", {}
+
+
 # AI categorization function (categorization only - no summary)
 def categorize_transactions(df):
     """Batch categorize transactions using AI"""
@@ -534,6 +848,8 @@ def categorize_transactions(df):
         return None
 
     categories_list = get_all_categories()
+    # Ensure all categories are strings and not empty
+    categories_list = [str(cat) for cat in categories_list if cat and str(cat).strip() != '' and str(cat) != 'nan']
 
     # Prepare batch of transactions
     batch_size = 15
@@ -672,28 +988,226 @@ st.markdown("""
         background-color: #f5f5f5;
     }
 
-    /* Sidebar styling 
-    [data-testid="stSidebar"] {
-        background-color: #e2999b;
-        color: #000000;
-    } */
-
     /* Headers */
     h1, h2, h3 {
         color: #000000 !important;
     }
-    /* Inactive button */
-    .stButton>button[disabled] {
-        color: #000000 !important;
+    
+    /* ========================================
+       NAVIGATION BUTTONS
+       ======================================== */
+    
+    /* Remove all default button styling first */
+    .stButton>button {
+        border: none !important;
+        outline: none !important;
     }
-
-    /* Primary button */
-    .stButton>button[kind="primary"] {
-        background-color: #832632;
-        color: white;
+    
+    /* PRIMARY BUTTON - Active Page (Navigation) */
+    .stButton>button[kind="primary"],
+    [data-testid="stSidebar"] .stButton>button[kind="primary"] {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: #D7D7D7 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+        font-weight: 600 !important;
+        transition: transform 0.15s ease !important;
     }
-
-    /* Chat input send button icon */
+    
+    .stButton>button[kind="primary"]:hover,
+    .stButton>button[kind="primary"]:focus,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:hover,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:focus {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: #D7D7D7 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+    }
+    
+    .stButton>button[kind="primary"]:active,
+    [data-testid="stSidebar"] .stButton>button[kind="primary"]:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* SECONDARY BUTTON - Inactive Page - Default State */
+    .stButton>button[kind="secondary"],
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"] {
+        background-color: #F1C8C8 !important;
+        background: #F1C8C8 !important;
+        color: #020202 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    /* SECONDARY BUTTON - Hover State Only (no sticky active state) */
+    .stButton>button[kind="secondary"]:hover,
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"]:hover {
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
+        color: #F8F8F8 !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+    }
+    
+    /* SECONDARY BUTTON - Active/Click State (with bounce) */
+    .stButton>button[kind="secondary"]:active,
+    [data-testid="stSidebar"] .stButton>button[kind="secondary"]:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* ========================================
+       FILE UPLOADER (Browse Files button)
+       ======================================== */
+    
+    /* File uploader "Browse files" button - same style as secondary nav buttons */
+    [data-testid="stFileUploadDropzone"] button {
+        background-color: #F1C8C8 !important;
+        background: #F1C8C8 !important;
+        color: #020202 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    [data-testid="stFileUploadDropzone"] button:hover {
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
+        color: #F8F8F8 !important;
+    }
+    
+    [data-testid="stFileUploadDropzone"] button:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* ========================================
+       IMPORT NEW DATA FILE UPLOADER (White/Cream background)
+       ======================================== */
+    
+    /* Style the file uploader label to look like other nav buttons */
+    [data-testid="stSidebar"] .import-button-wrapper label {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        display: block !important;
+        text-align: center !important;
+        cursor: pointer !important;
+        transition: all 0.15s ease !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper label:hover {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper label:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* Hide the actual file input button, keep only the styled label */
+    [data-testid="stSidebar"] .import-button-wrapper button {
+        display: none !important;
+    }
+    
+    /* Style the file uploader container */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploader"] {
+        border: none !important;
+        padding: 0 !important;
+        background: transparent !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploader"] > div {
+        border: none !important;
+        background: transparent !important;
+    }
+    
+    /* Style the Browse files button inside the wrapper */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #260A0C !important;
+        border: 2px solid #260A0C !important;
+        font-weight: 600 !important;
+        transition: all 0.15s ease !important;
+        display: block !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button:hover {
+        background-color: #FFF4F4 !important;
+        background: #FFF4F4 !important;
+        color: #050101 !important;
+    }
+    
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] button:active {
+        transform: translateY(2px) !important;
+    }
+    
+    /* Hide the drag and drop text */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] > div > div:first-child {
+        display: none !important;
+    }
+    
+    /* Make the whole dropzone look like a button */
+    [data-testid="stSidebar"] .import-button-wrapper [data-testid="stFileUploadDropzone"] {
+        border: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    
+    /* ========================================
+       DISABLED BUTTONS
+       ======================================== */
+    
+    .stButton>button:disabled,
+    [data-testid="stSidebar"] .stButton>button:disabled {
+        background-color: #D7D7D7 !important;
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        border-radius: 20px !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+        cursor: not-allowed !important;
+        opacity: 1 !important;
+        font-weight: 600 !important;
+    }
+    
+    .stButton>button:disabled:hover,
+    [data-testid="stSidebar"] .stButton>button:disabled:hover {
+        background-color: #D7D7D7 !important;
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        transform: none !important;
+        box-shadow: 0 6px 0 0 #050101 !important;
+        border: 2px solid #050101 !important;
+    }
+    
+    .stButton>button:disabled:hover {
+        background: #D7D7D7 !important;
+        color: #666666 !important;
+        box-shadow: none !important;
+        transform: none !important;
+        cursor: not-allowed !important;
+    }
+    
+    /* ========================================
+       CHAT STYLING
+       ======================================== */
+            
     .stChatInput button svg {
         fill: white !important;
     }
@@ -702,7 +1216,6 @@ st.markdown("""
         fill: white !important;
     }
 
-    /* Reduce chat message text size */
     .stChatMessage {
         font-size: 14px !important;
     }
@@ -711,12 +1224,127 @@ st.markdown("""
         font-size: 14px !important;
     }
 
-    /* Burgundy background for user messages */
     .stChatMessage[data-testid="chat-message-user"] div:last-child div div div {
-        background-color: #832632 !important; /* Burgundy */
+        background-color: #832632 !important;
         color: white !important;
     }
 
+            
+    /* ========================================
+   MANAGE CATEGORIES EXPANDER (SIDEBAR ONLY)
+   ======================================== */
+            
+    /* Expander in sidebar only */
+    [data-testid="stSidebar"] [data-testid="stExpander"] {
+        background-color: #F8F8F8 !important;
+        border-radius: 10px !important;
+        border: 1px solid #52181E !important;
+        padding: 0 !important   
+    }
+    
+        /* ========================================
+       CHAT CONTAINER ENHANCEMENTS
+       ======================================== */
+    
+    /* Target containers with 450px height - multiple approaches for compatibility */
+    div[style*="height: 450px"],
+    div[style*="height:450px"],
+    [data-testid="stVerticalBlock"] div[style*="height: 450px"],
+    [data-testid="stVerticalBlock"] > div > div[style*="height: 450px"] {
+        background-color: #f8f8f8 !important;
+        background: #f8f8f8 !important;
+        border-radius: 10px !important;
+        padding: 16px !important;
+        border: none !important;
+        margin: 0 !important;
+    }
+    
+    /* Target the parent element container */
+    [data-testid="element-container"]:has(div[style*="height: 450px"]) {
+        background-color: #f8f8f8 !important;
+        border-radius: 10px !important;
+        padding: 0 !important;
+    }
+    
+    /* Override Streamlit's default container background */
+    [data-testid="stVerticalBlock"]:has(.stChatMessage) {
+        background-color: #f8f8f8 !important;
+    }
+    
+    /* Chat message bubbles */
+    .stChatMessage {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        border: none !important;
+    }
+    
+    /* User messages - burgundy background */
+    .stChatMessage[data-testid="chat-message-user"],
+    .stChatMessage[data-testid="chat-message-user"] > div {
+        background-color: #832632 !important;
+        background: #832632 !important;
+        color: white !important;
+    }
+    
+    .stChatMessage[data-testid="chat-message-user"] *,
+    .stChatMessage[data-testid="chat-message-user"] p,
+    .stChatMessage[data-testid="chat-message-user"] div {
+        color: white !important;
+    }
+    
+    /* Assistant messages - white background with border */
+    .stChatMessage[data-testid="chat-message-assistant"] {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    /* Chat input field */
+    .stChatInput,
+    .stChatInput > div {
+        background-color: #e2999b !important;
+        background: #e2999b !important;
+        border-radius: 20px !important;
+        border: 1px solid #52181E !important;
+    }
+    
+    .stChatInput:focus-within,
+    .stChatInput:focus-within > div {
+        border-color: #52181E !important;
+        box-shadow: 0 0 0 1px #52181E !important;
+    }
+    
+    /* Chat input textarea */
+    .stChatInput textarea {
+        background-color: #e2999b !important;
+        color: #000000 !important;
+    }
+    
+    /* Chat send button - blend with input */
+    .stChatInput button {
+        background-color: #e2999b !important;
+        background: #e2999b !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+    
+    .stChatInput button:hover {
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
+    }
+    
+    .stChatInput button svg {
+        fill: #52181E !important;
+    }
+    
+    .stChatInput button:hover svg {
+        fill: #ffffff !important;
+    }
+    
 </style>
 """,
             unsafe_allow_html=True)
@@ -736,8 +1364,14 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = "summarize"
 if 'chat_messages' not in st.session_state:
     st.session_state.chat_messages = []
+if 'chat_messages_page2' not in st.session_state:
+    st.session_state.chat_messages_page2 = []
+if 'chat_messages_page3' not in st.session_state:
+    st.session_state.chat_messages_page3 = []
 if 'category_colors' not in st.session_state:
     st.session_state.category_colors = DEFAULT_CATEGORY_COLORS.copy()
+if 'category_aliases' not in st.session_state:
+    st.session_state.category_aliases = {}  # Project-specific aliases for categories
 if 'current_project' not in st.session_state:
     st.session_state.current_project = None
 if 'projects_list' not in st.session_state:
@@ -754,6 +1388,12 @@ if 'current_target_period' not in st.session_state:
     # Initialize with current month/year
     now = datetime.now()
     st.session_state.current_target_period = f"{now.strftime('%B %Y')}"  # e.g., "January 2025"
+if 'chart_period_type' not in st.session_state:
+    st.session_state.chart_period_type = 'monthly'  # 'monthly', 'yearly', or 'alltime'
+if 'current_chart_period' not in st.session_state:
+    # Initialize with current month/year
+    now = datetime.now()
+    st.session_state.current_chart_period = f"{now.strftime('%B %Y')}"  # e.g., "January 2025"
 
 # Sidebar
 with st.sidebar:
@@ -787,55 +1427,207 @@ with st.sidebar:
 
     st.divider()
 
-    # Import button at bottom
-    if st.button("📤 Import New Data",
-                 use_container_width=True,
-                 type="secondary",
-                 help="Clear current data and start fresh"):
-        st.session_state.transactions = None
-        st.session_state.categorized = False
-        st.session_state.analyzed = False
-        st.session_state.summary = None
-        st.session_state.current_project = None
-        st.session_state.chat_messages = []
-        st.session_state.last_uploaded_file_id = None
-        st.rerun()
+    # Import file uploader in sidebar - directly opens file browser
+    st.markdown('<div class="import-button-wrapper">', unsafe_allow_html=True)
+    sidebar_upload = st.file_uploader(
+        "📤 Import New Data",
+        type=['csv'],
+        help="Upload CSV to add data to current project or start new",
+        key="sidebar_csv_uploader",
+        label_visibility="visible")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Process sidebar upload
+    if sidebar_upload is not None:
+        # Generate a unique ID for this file
+        sidebar_file_id = f"sidebar_{sidebar_upload.name}_{sidebar_upload.size}"
+        
+        # Only process if this is a new file
+        if 'last_sidebar_upload_id' not in st.session_state:
+            st.session_state.last_sidebar_upload_id = None
+            
+        if sidebar_file_id != st.session_state.last_sidebar_upload_id:
+            with st.spinner("🤖 Analyzing CSV format..."):
+                df, error = parse_csv_with_ai(sidebar_upload)
+                st.session_state.last_sidebar_upload_id = sidebar_file_id
+            
+            if error:
+                st.error(f"❌ {error}")
+            elif df is not None:
+                # If a project is loaded, append to it
+                if st.session_state.current_project:
+                    combined_df, append_error = append_to_project(st.session_state.current_project, df)
+                    if append_error:
+                        st.error(f"❌ {append_error}")
+                    else:
+                        st.success(f"✅ Added {len(df)} new transactions")
+                        # Clean NaN values before storing
+                        combined_df = clean_dataframe_for_json(combined_df)
+                        st.session_state.transactions = combined_df
+                        st.session_state.categorized = True
+                        st.session_state.current_page = "summarize"
+                        st.rerun()
+                else:
+                    st.success(f"✅ Parsed {len(df)} transactions")
+                    # Clean NaN values before storing
+                    df = clean_dataframe_for_json(df)
+                    st.session_state.transactions = df
+                    st.session_state.current_page = "summarize"
+                    st.rerun()
 
     st.divider()
 
     # Custom categories section
-    st.markdown("### 🏷️ Custom Categories")
-
-    # Show existing custom categories
-    if st.session_state.custom_categories:
-        st.caption("Your custom categories:")
-        for cat in st.session_state.custom_categories:
-            st.markdown(f"• {cat}")
-    else:
-        st.caption("No custom categories yet")
-
-    # Add new category
-    new_category = st.text_input("New category name",
-                                 key="new_category_input",
-                                 placeholder="e.g., Pet Care")
-
-    if st.button("➕ Add Category", use_container_width=True):
-        if new_category and new_category.strip():
-            # Clean the category name
-            clean_name = new_category.strip().title()
-
-            # Check if it already exists (case-insensitive)
-            all_cats = get_all_categories()
-            if clean_name.lower() not in [c.lower() for c in all_cats]:
-                st.session_state.custom_categories.append(clean_name)
-                # Auto-assign a color to the new category
-                color = assign_color_to_category(clean_name)
-                st.success(f"✅ Added '{clean_name}' with color {color}")
-                st.rerun()
-            else:
-                st.error(f"❌ Category '{clean_name}' already exists")
+    with st.expander("🏷️ Manage Categories", expanded=False):
+        # Show default categories (can set aliases)
+        st.caption("**Default Categories** (project-specific names)")
+        for cat in CATEGORIES:
+            display_name = get_display_name(cat)
+            is_aliased = display_name != cat
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {display_name}", 
+                           unsafe_allow_html=True)
+                if is_aliased:
+                    st.caption(f"(originally: {cat})")
+            
+            with col2:
+                if is_aliased:
+                    # Show reset button if aliased
+                    if st.button("↺", key=f"reset_alias_{cat}", help=f"Reset to '{cat}'"):
+                        success, message = remove_category_alias(cat)
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
+                else:
+                    # Show rename button if not aliased
+                    if st.button("✏️", key=f"alias_btn_{cat}", help=f"Rename for this project"):
+                        st.session_state.aliasing_category = cat
+                        st.rerun()
+        
+        # Show alias input if a default category is being aliased
+        if 'aliasing_category' in st.session_state and st.session_state.aliasing_category:
+            cat_to_alias = st.session_state.aliasing_category
+            
+            st.markdown(f"**Set alias for:** *{cat_to_alias}*")
+            
+            alias_name = st.text_input(
+                "Display name:",
+                key=f"alias_input_{cat_to_alias}",
+                placeholder="Enter new display name"
+            )
+            
+            col_confirm, col_cancel = st.columns(2)
+            
+            with col_confirm:
+                if st.button("✅ Set", use_container_width=True, key=f"confirm_alias_{cat_to_alias}"):
+                    if alias_name and alias_name.strip():
+                        success, message = set_category_alias(cat_to_alias, alias_name.strip().title())
+                        
+                        if success:
+                            st.success(message)
+                            del st.session_state.aliasing_category
+                            st.rerun()
+                        else:
+                            st.error(message)
+                    else:
+                        st.error("Please enter a display name")
+            
+            with col_cancel:
+                if st.button("❌ Cancel", use_container_width=True, key=f"cancel_alias_{cat_to_alias}"):
+                    del st.session_state.aliasing_category
+                    st.rerun()
+        
+        st.divider()
+        
+        # Show custom categories (editable)
+        st.caption("**Your Custom Categories**")
+        st.caption("**Your Custom Categories**")
+        
+        if st.session_state.custom_categories:
+            for cat in st.session_state.custom_categories:
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"<span style='color: {get_category_color(cat)};'>●</span> {cat}", 
+                               unsafe_allow_html=True)
+                
+                with col2:
+                    if st.button("✏️", key=f"rename_btn_{cat}", help=f"Rename {cat}"):
+                        st.session_state.renaming_category = cat
+                        st.rerun()
+            
+            # Show rename input if a category is being renamed
+            if 'renaming_category' in st.session_state and st.session_state.renaming_category:
+                cat_to_rename = st.session_state.renaming_category
+                
+                st.markdown(f"**Renaming:** *{cat_to_rename}*")
+                
+                new_name = st.text_input(
+                    "New name:",
+                    key=f"rename_input_{cat_to_rename}",
+                    placeholder="Enter new category name"
+                )
+                
+                col_confirm, col_cancel = st.columns(2)
+                
+                with col_confirm:
+                    if st.button("✅ Confirm", use_container_width=True, key=f"confirm_rename_{cat_to_rename}"):
+                        if new_name and new_name.strip():
+                            success, message, affected = rename_category(cat_to_rename, new_name.strip().title())
+                            
+                            if success:
+                                st.success(f"{message}")
+                                if affected['transactions'] > 0:
+                                    st.info(f"📊 Updated {affected['transactions']} transaction(s)")
+                                if affected['targets'] > 0:
+                                    st.info(f"🎯 Updated {affected['targets']} target(s)")
+                                
+                                # Clear renaming state
+                                del st.session_state.renaming_category
+                                st.rerun()
+                            else:
+                                st.error(message)
+                        else:
+                            st.error("Please enter a new name")
+                
+                with col_cancel:
+                    if st.button("❌ Cancel", use_container_width=True, key=f"cancel_rename_{cat_to_rename}"):
+                        del st.session_state.renaming_category
+                        st.rerun()
         else:
-            st.error("❌ Please enter a category name")
+            st.caption("*No custom categories yet*")
+        
+        st.divider()
+        
+        # Add new category
+        st.caption("**Add New Category**")
+        new_category = st.text_input(
+            "Category name:",
+            key="new_category_input",
+            placeholder="e.g., Pet Care"
+        )
+        
+        if st.button("➕ Add Category", use_container_width=True):
+            if new_category and new_category.strip():
+                # Clean the category name
+                clean_name = new_category.strip().title()
+                
+                # Check if it already exists (case-insensitive)
+                all_cats = get_all_categories()
+                if clean_name.lower() not in [c.lower() for c in all_cats]:
+                    st.session_state.custom_categories.append(clean_name)
+                    # Auto-assign a color to the new category
+                    color = assign_color_to_category(clean_name)
+                    st.success(f"✅ Added '{clean_name}'")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Category '{clean_name}' already exists")
+            else:
+                st.error("❌ Please enter a category name")
 
 # ============================================
 # PAGE ROUTING
@@ -953,12 +1745,16 @@ if st.session_state.current_page == "summarize":
                     else:
                         st.success(f"✅ Added {len(df)} new transactions to '{st.session_state.current_project}'" + 
                                   (" (with balance tracking)" if 'balance' in df.columns else ""))
+                        # Clean NaN values before storing
+                        combined_df = clean_dataframe_for_json(combined_df)
                         st.session_state.transactions = combined_df
                         st.session_state.categorized = True
                         st.rerun()
                 else:
                     st.success(f"✅ Successfully parsed {len(df)} transactions" + 
                               (" (with balance tracking)" if 'balance' in df.columns else ""))
+                    # Clean NaN values before storing
+                    df = clean_dataframe_for_json(df)
                     st.session_state.transactions = df
                     st.rerun()
     
@@ -990,6 +1786,10 @@ if st.session_state.current_page == "summarize":
     if st.session_state.transactions is not None:
         # Display loaded data
         df = st.session_state.transactions
+        
+        # Ensure DataFrame is clean before any operations
+        df = clean_dataframe_for_json(df)
+        st.session_state.transactions = df
 
         st.success(f"✅ Loaded {len(df)} transactions")
 
@@ -1005,6 +1805,8 @@ if st.session_state.current_page == "summarize":
                     if categorized_df is not None:
                         st.session_state.transactions = categorized_df
                         st.session_state.categorized = True
+                        # Sync any new categories
+                        sync_categories_from_dataframe(categorized_df)
                         st.rerun()
 
         else:
@@ -1014,9 +1816,20 @@ if st.session_state.current_page == "summarize":
                 "Review the AI categorization. You can edit categories or add custom ones in the sidebar."
             )
 
+            # Clean any NaN values before displaying in data editor
+            df_clean = clean_dataframe_for_json(df)
+            
+            # Additional safety: ensure no NaN values in any column
+            for col in df_clean.columns:
+                if df_clean[col].isnull().any():
+                    if pd.api.types.is_numeric_dtype(df_clean[col]):
+                        df_clean[col] = df_clean[col].fillna(0)
+                    else:
+                        df_clean[col] = df_clean[col].fillna('')
+            
             # Use data_editor to allow manual category changes
             edited_df = st.data_editor(
-                df,
+                df_clean,
                 column_config={
                     "category":
                     st.column_config.SelectboxColumn(
@@ -1033,8 +1846,10 @@ if st.session_state.current_page == "summarize":
                 key="transaction_editor")
 
             # Update session state if data was edited
-            if not edited_df.equals(df):
+            if not edited_df.equals(df_clean):
                 st.session_state.transactions = edited_df
+                # Sync any new categories from the dataframe
+                sync_categories_from_dataframe(edited_df)
                 # Reset analysis if categories were changed
                 st.session_state.analyzed = False
                 st.session_state.summary = None
@@ -1045,6 +1860,8 @@ if st.session_state.current_page == "summarize":
                     categorized_df = categorize_transactions(edited_df.copy())
                     if categorized_df is not None:
                         st.session_state.transactions = categorized_df
+                        # Sync any new categories
+                        sync_categories_from_dataframe(categorized_df)
                         st.session_state.analyzed = False
                         st.session_state.summary = None
                         st.success("✅ Transactions re-categorized!")
@@ -1081,11 +1898,14 @@ if st.session_state.current_page == "summarize":
                         'category')['amount'].sum().reset_index()
                     category_spending = category_spending.sort_values(
                         'amount', ascending=False)
+                    
+                    # Apply display names (aliases) for chart
+                    category_spending['display_name'] = category_spending['category'].apply(get_display_name)
 
                     # Create pie chart with consistent category colors
                     fig = px.pie(category_spending,
                                  values='amount',
-                                 names='category',
+                                 names='display_name',
                                  title='',
                                  color='category',
                                  color_discrete_map={
@@ -1232,6 +2052,9 @@ elif st.session_state.current_page == "analyze":
                 'category')['amount'].sum().reset_index()
             category_spending = category_spending.sort_values('amount',
                                                               ascending=False)
+            
+            # Apply display names (aliases) for chart
+            category_spending['display_name'] = category_spending['category'].apply(get_display_name)
 
             # Use category colors
             colors = [
@@ -1241,7 +2064,7 @@ elif st.session_state.current_page == "analyze":
 
             fig_donut = px.pie(category_spending,
                                values='amount',
-                               names='category',
+                               names='display_name',
                                hole=0.6,
                                color='category',
                                color_discrete_map={
@@ -1258,9 +2081,11 @@ elif st.session_state.current_page == "analyze":
 
             fig_donut.update_traces(
                 textposition='outside',
-                textinfo='percent',
+                textinfo='none',  # Hide default text
                 textfont_size=12,
-                marker=dict(line=dict(color='#FFFFFF', width=2)))
+                marker=dict(line=dict(color='#FFFFFF', width=2)),
+                hovertemplate='<b>%{label}</b><br>£%{value:,.2f}<br>%{percent}<extra></extra>'  # Added custom hover with %
+            )
 
             fig_donut.update_layout(showlegend=True,
                                     height=400,
@@ -1279,57 +2104,136 @@ elif st.session_state.current_page == "analyze":
 
             st.plotly_chart(fig_donut, use_container_width=True)
 
-            # Line chart showing spending over time
+            # Stacked bar chart showing spending over time
             st.markdown("### Spending Over Time")
+            
+            # Period type selector
+            chart_period_type = st.radio(
+                "View by:",
+                ["Monthly", "Yearly", "All-Time"],
+                horizontal=True,
+                index=0 if st.session_state.chart_period_type == 'monthly' else (1 if st.session_state.chart_period_type == 'yearly' else 2),
+                key="chart_period_selector"
+            )
+            
+            # Update period type if changed
+            new_chart_period_type = chart_period_type.lower().replace('-', '')
+            if new_chart_period_type != st.session_state.chart_period_type:
+                st.session_state.chart_period_type = new_chart_period_type
+                now = datetime.now()
+                if new_chart_period_type == 'monthly':
+                    st.session_state.current_chart_period = now.strftime('%B %Y')
+                elif new_chart_period_type == 'yearly':
+                    st.session_state.current_chart_period = str(now.year)
+                else:
+                    st.session_state.current_chart_period = 'All Time'
+                st.rerun()
+            
+            # Period navigation (for monthly and yearly views)
+            if st.session_state.chart_period_type != 'alltime':
+                col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
+                
+                with col_nav1:
+                    if st.button("◀", use_container_width=True, key="chart_prev"):
+                        st.session_state.current_chart_period = get_prev_period(
+                            st.session_state.current_chart_period, 
+                            st.session_state.chart_period_type
+                        )
+                        st.rerun()
+                
+                with col_nav2:
+                    st.markdown(f"<h4 style='text-align: center; margin: 0;'>{st.session_state.current_chart_period}</h4>", 
+                               unsafe_allow_html=True)
+                
+                with col_nav3:
+                    if st.button("▶", use_container_width=True, key="chart_next"):
+                        st.session_state.current_chart_period = get_next_period(
+                            st.session_state.current_chart_period, 
+                            st.session_state.chart_period_type
+                        )
+                        st.rerun()
 
-            # Parse dates and group by date and category
+            # Parse dates and filter by period
             df_chart = df.copy()
             df_chart['date'] = pd.to_datetime(df_chart['date'],
                                               format='%d/%m/%Y', errors='coerce')
             df_chart = df_chart.dropna(subset=['date'])
-
-            # Group by date and category
-            timeline_data = df_chart.groupby(['date', 'category'
-                                              ])['amount'].sum().reset_index()
-
-            # Create line chart with matching colors from donut chart
-            import plotly.graph_objects as go
             
-            fig_line = px.line(
-                timeline_data,
-                x='date',
-                y='amount',
-                color='category',
-                color_discrete_map={
-                    cat: get_category_color(cat)
-                    for cat in timeline_data['category'].unique()
-                })
-
-            fig_line.update_traces(mode='lines', line=dict(width=3))
-
-            fig_line.update_layout(
-                height=300,
-                showlegend=True,
-                legend=dict(orientation="h",
-                           yanchor="bottom",
-                           y=1.02,
-                           xanchor="left",
-                           x=0),
-                xaxis=dict(showgrid=True,
-                          gridcolor='#E0E0E0',
-                          zeroline=False),
-                yaxis=dict(showgrid=True,
-                          gridcolor='#E0E0E0',
-                          zeroline=False),
-                font=dict(family="Manrope, Arial, sans-serif",
-                         size=12,
-                         color="#000000"),
-                margin=dict(t=50, b=20, l=20, r=20),
-                paper_bgcolor='white',
-                plot_bgcolor='white'
-            )
-
-            st.plotly_chart(fig_line, use_container_width=True)
+            # Filter by selected period
+            if st.session_state.chart_period_type != 'alltime':
+                df_chart = get_transactions_for_period(
+                    df_chart,
+                    st.session_state.chart_period_type,
+                    st.session_state.current_chart_period
+                )
+            
+            if len(df_chart) > 0:
+                # Group by date and category for stacked bar chart
+                daily_spending = df_chart.groupby([df_chart['date'].dt.date, 'category'])['amount'].sum().reset_index()
+                daily_spending.columns = ['date', 'category', 'amount']
+                
+                # Sort by date to ensure proper display
+                daily_spending = daily_spending.sort_values('date')
+                
+                # Apply display names (aliases) for chart
+                daily_spending['display_name'] = daily_spending['category'].apply(get_display_name)
+                
+                # Create stacked bar chart
+                fig_bar = px.bar(
+                    daily_spending,
+                    x='date',
+                    y='amount',
+                    color='display_name',
+                    color_discrete_map={
+                        get_display_name(cat): get_category_color(cat)
+                        for cat in daily_spending['category'].unique()
+                    }
+                )
+                
+                # Explicitly set barmode to stack
+                fig_bar.update_layout(barmode='stack')
+                
+                fig_bar.update_traces(
+                    marker=dict(line=dict(color='#FFFFFF', width=1))
+                )
+                
+                fig_bar.update_layout(
+                    height=350,
+                    showlegend=True,
+                    legend=dict(
+                        orientation="h",
+                        yanchor="bottom",
+                        y=1.02,
+                        xanchor="left",
+                        x=0,
+                        title=""
+                    ),
+                    xaxis=dict(
+                        showgrid=True,
+                        gridcolor='#E0E0E0',
+                        zeroline=False,
+                        title="Date"
+                    ),
+                    yaxis=dict(
+                        showgrid=True,
+                        gridcolor='#E0E0E0',
+                        zeroline=False,
+                        title="Amount (£)"
+                    ),
+                    font=dict(
+                        family="Manrope, Arial, sans-serif",
+                        size=12,
+                        color="#000000"
+                    ),
+                    margin=dict(t=50, b=50, l=50, r=20),
+                    paper_bgcolor='white',
+                    plot_bgcolor='white',
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.info(f"📊 No transactions found for {st.session_state.current_chart_period}")
             
             # Balance tracking chart (if balance column exists)
             if 'balance' in df.columns:
@@ -1417,14 +2321,14 @@ elif st.session_state.current_page == "analyze":
                 </div>
                 """,
                             unsafe_allow_html=True)
-
+                
                 # Scrollable chat messages container with fixed height
                 chat_messages_container = st.container(height=450)
 
                 with chat_messages_container:
-                    if st.session_state.chat_messages:
+                    if st.session_state.chat_messages_page2:
                         for idx, msg in enumerate(
-                                st.session_state.chat_messages):
+                                st.session_state.chat_messages_page2):
                             if msg['role'] == 'user':
                                 with st.chat_message("user"):
                                     st.markdown(msg['content'])
@@ -1434,7 +2338,7 @@ elif st.session_state.current_page == "analyze":
                                     with st.expander(
                                             "View response",
                                             expanded=(idx == len(
-                                                st.session_state.chat_messages)
+                                                st.session_state.chat_messages_page2)
                                                       - 1)):
                                         st.markdown(msg['content'])
                     else:
@@ -1450,10 +2354,10 @@ elif st.session_state.current_page == "analyze":
                 user_question = st.chat_input(
                     placeholder="Explore your spending...", key="chat_input")
 
-        # PAGE 2 CHAT RESPONSE HANDLER - THIS WAS MISSING!
+        # PAGE 2 CHAT RESPONSE HANDLER
         if user_question and user_question.strip():
             # Add user message
-            st.session_state.chat_messages.append({
+            st.session_state.chat_messages_page2.append({
                 'role': 'user',
                 'content': user_question
             })
@@ -1577,9 +2481,9 @@ Provide helpful budgeting advice."""
             
             if client:
                 try:
-                    response = client.chat.completions.create(
-                        model="gpt-4o-mini",
-                        messages=[{
+                    # Build message history for multi-turn conversation
+                    messages = [
+                        {
                             "role": "system",
                             "content": """You are a helpful financial coaching assistant.
 
@@ -1587,10 +2491,25 @@ CRITICAL: You have detailed transaction-level data in the context above. USE IT.
 - Reference specific payee names and dates when answering about spending
 - Look at the "Max single transaction" field for biggest expenses
 - When updating budgets, use the update_targets function"""
-                            }, {
-                                "role": "user",
-                                "content": context
-                            }],
+                        }
+                    ]
+                    
+                    # Add conversation history (excluding current question)
+                    for msg in st.session_state.chat_messages_page2[:-1]:
+                        messages.append({
+                            "role": msg['role'],
+                            "content": msg['content']
+                        })
+                    
+                    # Add current question with full context
+                    messages.append({
+                        "role": "user",
+                        "content": context
+                    })
+                    
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=messages,
                         functions=[update_targets_function],
                         function_call="auto",
                         temperature=0.7,
@@ -1622,26 +2541,78 @@ CRITICAL: You have detailed transaction-level data in the context above. USE IT.
                                 if period_key not in st.session_state.targets[st.session_state.target_period_type]:
                                     st.session_state.targets[st.session_state.target_period_type][period_key] = {}
                                 
+                                # Update targets
                                 for category, amount in targets_to_update.items():
                                     st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
                                     widget_key = f"target_{category}_{period_key}"
                                     if widget_key in st.session_state:
                                         del st.session_state[widget_key]
                                 
+                                # Save to project
                                 if st.session_state.current_project and st.session_state.current_project != "Current Session":
                                     save_targets_to_project(st.session_state.current_project)
                                 
+                                # Create function result
                                 updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
-                                ai_response = f"✅ Updated targets:\n\n{updates_text}"
+                                function_result = json.dumps({
+                                    "success": True,
+                                    "updated_targets": targets_to_update,
+                                    "period": period_key,
+                                    "message": f"Successfully updated targets: {updates_text}"
+                                })
                                 
-                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
-                                    ai_response += "\n\n💡 Save as project to persist targets."
+                                # Make follow-up call with better prompt
+                                try:
+                                    follow_up_messages = messages + [
+                                        {
+                                            "role": "assistant",
+                                            "content": None,
+                                            "function_call": {
+                                                "name": "update_targets",
+                                                "arguments": response_message.function_call.arguments
+                                            }
+                                        },
+                                        {
+                                            "role": "function",
+                                            "name": "update_targets",
+                                            "content": function_result
+                                        },
+                                        {
+                                            "role": "user",
+                                            "content": "Great! Can you confirm what you just updated and provide a friendly summary?"
+                                        }
+                                    ]
+                                    
+                                    follow_up_response = client.chat.completions.create(
+                                        model="gpt-4o-mini",
+                                        messages=follow_up_messages,
+                                        temperature=0.7,
+                                        max_tokens=1000
+                                    )
+                                    
+                                    ai_response = follow_up_response.choices[0].message.content
+                                    
+                                    # If still no response, create a good default
+                                    if not ai_response or not ai_response.strip():
+                                        ai_response = f"✅ Perfect! I've updated your {st.session_state.target_period_type} budget targets for {period_key}:\n\n"
+                                        for cat, amt in targets_to_update.items():
+                                            ai_response += f"• **{cat}**: £{amt:.2f}\n"
+                                        ai_response += "\nYour targets are now saved! 📊"
+                                        
+                                        if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                            ai_response += "\n\n💡 **Tip**: Save your data as a project to keep these targets permanently."
+                                            
+                                except Exception as e:
+                                    # Fallback if follow-up call fails
+                                    ai_response = f"✅ Updated targets:\n\n{updates_text}"
+                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                        ai_response += "\n\n💡 Save as project to persist targets."
                             else:
-                                ai_response = "❌ Could not update targets. Please specify amounts."
+                                ai_response = "❌ Could not update targets. Please specify amounts (e.g., 'Set Groceries to £300')."
                     else:
                         ai_response = response_message.content if response_message.content else "How can I help with your budget?"
                     
-                    st.session_state.chat_messages.append({
+                    st.session_state.chat_messages_page2.append({
                         'role': 'assistant',
                         'content': ai_response
                     })
@@ -1651,6 +2622,575 @@ CRITICAL: You have detailed transaction-level data in the context above. USE IT.
                     st.error(f"Error: {str(e)}")
             else:
                 st.error("OpenAI API key not configured")
+
+# PAGE 3: SET TARGETS
+elif st.session_state.current_page == "targets":
+    # Reload current project data if one is selected
+    if st.session_state.current_project and st.session_state.current_project != "Current Session":
+        loaded_df, error = load_project(st.session_state.current_project)
+        if not error and loaded_df is not None:
+            if st.session_state.transactions is None or len(loaded_df) != len(st.session_state.transactions):
+                st.session_state.transactions = loaded_df
+                st.session_state.categorized = True
+    
+    # Project selector at top
+    col_title, col_project = st.columns([2, 1])
+    
+    with col_title:
+        st.title("Set Targets")
+    
+    with col_project:
+        # Refresh projects list
+        st.session_state.projects_list = list_projects()
+        saved_projects = [p['name'] for p in st.session_state.projects_list]
+        
+        if saved_projects:
+            project_options = ["Current Session"] + saved_projects
+            
+            selected_option = st.selectbox(
+                "📁 Select Project",
+                project_options,
+                index=0 if not st.session_state.current_project else (
+                    project_options.index(st.session_state.current_project) 
+                    if st.session_state.current_project in project_options else 0
+                ),
+                key="targets_project_selector"
+            )
+            
+            if selected_option != "Current Session" and selected_option != st.session_state.current_project:
+                loaded_df, error = load_project(selected_option)
+                if error:
+                    st.error(f"❌ {error}")
+                else:
+                    st.session_state.transactions = loaded_df
+                    st.session_state.current_project = selected_option
+                    st.session_state.categorized = True
+                    st.rerun()
+    
+    # Create two columns for main content and chat
+    main_col, chat_col = st.columns([2, 1])
+    
+    with main_col:
+        # Period type selector
+        st.subheader("Target Period")
+        
+        period_type = st.radio(
+            "How often do you want to track targets?",
+            ["Monthly", "Yearly", "All-Time"],
+            horizontal=True,
+            index=0 if st.session_state.target_period_type == 'monthly' else (1 if st.session_state.target_period_type == 'yearly' else 2)
+        )
+        
+        # Update period type if changed
+        new_period_type = period_type.lower().replace('-', '')
+        if new_period_type != st.session_state.target_period_type:
+            st.session_state.target_period_type = new_period_type
+            now = datetime.now()
+            if new_period_type == 'monthly':
+                st.session_state.current_target_period = now.strftime('%B %Y')
+            elif new_period_type == 'yearly':
+                st.session_state.current_target_period = str(now.year)
+            else:
+                st.session_state.current_target_period = 'All Time'
+            st.rerun()
+        
+        # Period navigation
+        if st.session_state.target_period_type != 'alltime':
+            col_nav1, col_nav2, col_nav3 = st.columns([1, 3, 1])
+            
+            with col_nav1:
+                if st.button("◀ Previous", use_container_width=True):
+                    st.session_state.current_target_period = get_prev_period(
+                        st.session_state.current_target_period, 
+                        st.session_state.target_period_type
+                    )
+                    st.rerun()
+            
+            with col_nav2:
+                st.markdown(f"<h3 style='text-align: center;'>{st.session_state.current_target_period}</h3>", 
+                           unsafe_allow_html=True)
+            
+            with col_nav3:
+                if st.button("Next ▶", use_container_width=True):
+                    st.session_state.current_target_period = get_next_period(
+                        st.session_state.current_target_period, 
+                        st.session_state.target_period_type
+                    )
+                    st.rerun()
+        else:
+            st.markdown(f"<h3 style='text-align: center;'>All-Time Targets</h3>", 
+                       unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # Get all categories
+        all_categories = get_all_categories()
+        
+        # Get current targets for this period
+        period_key = st.session_state.current_target_period
+        period_targets = st.session_state.targets[st.session_state.target_period_type].get(period_key, {})
+        
+        # Category targets section
+        st.subheader("Category Targets")
+        st.caption("Set spending limits for each category")
+        
+        # Create target inputs for each category
+        updated_targets = {}
+        
+        for category in all_categories:
+            display_name = get_display_name(category)
+            col_cat, col_input = st.columns([2, 1])
+            
+            with col_cat:
+                color = get_category_color(category)
+                st.markdown(
+                    f'<div style="background-color: {color}; color: white; padding: 8px 16px; '
+                    f'border-radius: 20px; display: inline-block; margin: 4px 0;">'
+                    f'{display_name}</div>',
+                    unsafe_allow_html=True
+                )
+            
+            with col_input:
+                current_value = period_targets.get(category, 0.0)
+                target_value = st.number_input(
+                    f"£",
+                    min_value=0.0,
+                    value=float(current_value),
+                    step=10.0,
+                    key=f"target_{category}_{period_key}",
+                    label_visibility="collapsed"
+                )
+                updated_targets[category] = target_value
+        
+        # Save button
+        if st.button("💾 Save Targets", type="primary", use_container_width=True):
+            if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+            
+            st.session_state.targets[st.session_state.target_period_type][period_key] = updated_targets
+            
+            if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                success, error = save_targets_to_project(st.session_state.current_project)
+                if success:
+                    st.success(f"✅ Targets saved for {period_key}!")
+                else:
+                    st.error(f"❌ Failed to save targets: {error}")
+            else:
+                st.success(f"✅ Targets saved for {period_key}!")
+                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                    st.info("💡 Save your transactions as a project to persist these targets permanently.")
+        
+        st.divider()
+        
+        # TARGET PROGRESS SECTION
+        st.subheader("📊 Target Progress")
+        
+        if st.session_state.transactions is not None and st.session_state.categorized:
+            df = st.session_state.transactions
+            
+            progress = get_target_progress(
+                df, 
+                st.session_state.target_period_type, 
+                period_key, 
+                period_targets
+            )
+            
+            if progress and any(period_targets.values()):
+                for category in all_categories:
+                    if category in progress:
+                        display_name = get_display_name(category)
+                        data = progress[category]
+                        spent = data['spent']
+                        target = data['target']
+                        percent = data['percent']
+                        remaining = data['remaining']
+                        over_budget = data['over_budget']
+                        
+                        if target > 0:
+                            color = get_category_color(category)
+                            
+                            if over_budget:
+                                status = "⚠️ OVER BUDGET"
+                                status_color = "#FF3B30"
+                            elif percent >= 80:
+                                status = "⚠️ WARNING"
+                                status_color = "#FF9500"
+                            else:
+                                status = "✅ ON TRACK"
+                                status_color = "#34C759"
+                            
+                            col_cat_prog, col_amt_prog, col_stat_prog = st.columns([2, 2, 1])
+                            
+                            with col_cat_prog:
+                                st.markdown(
+                                    f'<div style="background-color: {color}; color: white; padding: 8px 16px; '
+                                    f'border-radius: 20px; display: inline-block; margin: 4px 0;">'
+                                    f'{display_name}</div>',
+                                    unsafe_allow_html=True
+                                )
+                            
+                            with col_amt_prog:
+                                st.markdown(f"**£{spent:.2f}** / £{target:.2f} ({percent:.1f}%)")
+                            
+                            with col_stat_prog:
+                                st.markdown(
+                                    f'<div style="color: {status_color}; font-weight: bold; text-align: right;">'
+                                    f'{status}</div>',
+                                    unsafe_allow_html=True
+                                )
+                            
+                            st.progress(min(percent / 100, 1.0))
+                            
+                            if remaining > 0 and not over_budget:
+                                st.caption(f"💰 £{remaining:.2f} remaining")
+                            elif over_budget:
+                                st.caption(f"⚠️ £{abs(remaining):.2f} over budget")
+                            
+                            st.markdown("")
+            else:
+                st.info("💡 Set targets above to see your progress")
+        else:
+            st.info("📥 Upload and categorize transactions to see progress towards targets")
+    
+    with chat_col:
+        # Chat container
+        chat_container = st.container()
+        
+        with chat_container:
+            # Chat header
+            st.markdown("""
+            <div style='background: white; padding: 20px 20px 10px 20px; border-radius: 10px 10px 0 0;'>
+                <h3 style='color: #52181E; margin: 0;'>CHAT</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Chat messages container
+            chat_messages_container = st.container(height=450)
+            
+            with chat_messages_container:
+                if st.session_state.chat_messages_page3:
+                    for idx, msg in enumerate(st.session_state.chat_messages_page3):
+                        if msg['role'] == 'user':
+                            with st.chat_message("user"):
+                                st.markdown(msg['content'])
+                        else:
+                            with st.chat_message("assistant"):
+                                with st.expander(
+                                    "View response",
+                                    expanded=(idx == len(st.session_state.chat_messages_page3) - 1)
+                                ):
+                                    st.markdown(msg['content'])
+                else:
+                    st.info("💬 Ask me about your spending or let me help you set budgets!")
+            
+            # Chat input
+            st.markdown("""
+            <div style='background: white; padding: 0 20px 20px 20px;'>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            user_question = st.chat_input(
+                placeholder="Ask about budgeting...", 
+                key="targets_chat_input"
+            )
+    
+    # PAGE 3 CHAT HANDLER
+    if user_question and user_question.strip():
+        # Add user message
+        st.session_state.chat_messages_page3.append({
+            'role': 'user',
+            'content': user_question
+        })
+        
+        # Build context
+        all_cats = get_all_categories()
+        current_targets = st.session_state.targets[st.session_state.target_period_type].get(
+            st.session_state.current_target_period, {}
+        )
+        
+        # Build targets context
+        targets_context = f"\nCURRENT TARGETS ({st.session_state.target_period_type} - {st.session_state.current_target_period}):\n"
+        if current_targets:
+            for cat, target in current_targets.items():
+                targets_context += f"- {cat}: £{target:.2f}\n"
+        else:
+            targets_context += "No targets set for this period yet.\n"
+        
+        # Build context with transaction data
+        if st.session_state.transactions is not None and st.session_state.categorized:
+            df = st.session_state.transactions
+            total = df['amount'].sum()
+            
+            # Parse dates
+            df_detailed = df.copy()
+            df_detailed['date'] = pd.to_datetime(df_detailed['date'], format='%d/%m/%Y', errors='coerce')
+            df_detailed = df_detailed.dropna(subset=['date'])
+            
+            # Build detailed category breakdown
+            category_details = []
+            for category in sorted(df['category'].unique()):
+                cat_df = df_detailed[df_detailed['category'] == category]
+                cat_total = cat_df['amount'].sum()
+                cat_avg = cat_df['amount'].mean()
+                cat_max = cat_df['amount'].max()
+                
+                # Top 5 spends
+                top_spends = cat_df.nlargest(5, 'amount')[['date', 'payee', 'amount']]
+                top_spends_text = "; ".join([
+                    f"{row['date'].strftime('%d/%m/%Y')}: {row['payee']} £{row['amount']:.2f}"
+                    for _, row in top_spends.iterrows()
+                ])
+                
+                # Biggest transaction
+                max_transaction = cat_df.loc[cat_df['amount'].idxmax()]
+                
+                category_details.append(
+                    f"- {category}: Total £{cat_total:.2f}, Avg £{cat_avg:.2f}, Max single transaction: £{cat_max:.2f} ({max_transaction['payee']} on {max_transaction['date'].strftime('%d/%m/%Y')}) | Top 5 spends: {top_spends_text}"
+                )
+            
+            # Get progress
+            period_progress = get_target_progress(
+                df,
+                st.session_state.target_period_type,
+                st.session_state.current_target_period,
+                current_targets
+            )
+            
+            progress_text = ""
+            if period_progress and any(current_targets.values()):
+                progress_text = "\nPROGRESS VS TARGETS:\n"
+                for cat, data in period_progress.items():
+                    status = "✅ ON TRACK" if not data['over_budget'] else "⚠️ OVER"
+                    progress_text += f"- {cat}: £{data['spent']:.2f}/£{data['target']:.2f} ({data['percent']:.1f}%) {status}\n"
+            
+            context = f"""You are a helpful financial assistant. The user has uploaded their transaction data, and you can see every single transaction with payee names, dates, and amounts.
+
+PERIOD: {st.session_state.target_period_type.upper()} - {st.session_state.current_target_period}
+
+TRANSACTION DATA SUMMARY:
+- Total spent: £{total:.2f}
+- Number of transactions: {len(df)}
+
+DETAILED SPENDING BY CATEGORY (with individual transaction details):
+{chr(10).join(category_details)}
+
+{targets_context}
+{progress_text}
+
+USER QUESTION: {user_question}
+
+CRITICAL INSTRUCTIONS:
+- THE USER IS CURRENTLY VIEWING: {st.session_state.target_period_type.upper()} period for {st.session_state.current_target_period}
+- When the user says "implement these" or "set these budgets", they mean for the CURRENT PERIOD: {st.session_state.current_target_period}
+- If the user asks for "November 2025" targets but you're viewing "Yearly 2025", you need to tell them to switch to Monthly view first
+- You have access to detailed transaction data above. Each category shows specific payee names, dates, and amounts.
+- When answering questions like "What's my biggest expense?", reference the actual payee name and date from the data.
+- You can act like ChatGPT - provide context, ask follow-up questions, and have a natural conversation.
+- If the user asks about setting budgets, you can propose realistic targets based on their actual spending patterns.
+- Use the update_targets function to actually update budget targets when appropriate - but ONLY for the current period!
+- Be conversational and helpful - you're a financial coach, not just a data analyzer."""
+        else:
+            context = f"""You are a helpful financial assistant.
+
+The user hasn't uploaded transaction data yet, but they can still set budget targets.
+
+{targets_context}
+
+Available categories: {', '.join(all_cats)}
+Current period: {st.session_state.target_period_type} - {st.session_state.current_target_period}
+
+USER QUESTION: {user_question}
+
+INSTRUCTIONS:
+- Help the user set realistic budget targets.
+- If they want to update budgets, use the update_targets function.
+- Be conversational like ChatGPT - provide helpful financial advice."""
+        
+        # Define update targets function
+        update_targets_function = {
+            "name": "update_targets",
+            "description": f"Update spending targets for one or more categories for the current period ({st.session_state.target_period_type} - {st.session_state.current_target_period}). ONLY use this when the user explicitly wants to set or modify budgets for THIS specific period.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "targets": {
+                        "type": "object",
+                        "description": "Dictionary of category names (e.g., 'Groceries', 'Transport') to target amounts in GBP (must be numbers, not strings)",
+                        "additionalProperties": {
+                            "type": "number"
+                        }
+                    }
+                },
+                "required": ["targets"]
+            }
+        }
+        
+        if client:
+            try:
+                # Build message history for multi-turn conversation
+                messages = [
+                    {
+                        "role": "system",
+                        "content": f"""You are a helpful, conversational financial assistant. You have access to the user's detailed transaction data and can reference specific transactions.
+
+CRITICAL CONTEXT AWARENESS:
+- The user is currently viewing {st.session_state.target_period_type.upper()} targets for {st.session_state.current_target_period}
+- When they say "implement these" or "set these budgets", they mean for THIS period: {st.session_state.current_target_period}
+- If they ask for a different period (e.g., "November" when viewing "Yearly 2025"), tell them to switch the period selector first
+- ALWAYS pass actual target amounts in the targets dictionary, never empty
+
+When the user asks you to set, update, or propose budgets, you MUST use the update_targets function to make the changes. Don't just suggest - actually do it.
+
+FUNCTION CALLING RULES:
+- Always include category names and amounts in the targets parameter
+- Example: {{"targets": {{"Groceries": 300, "Transport": 150}}}}
+- Never call the function with empty parameters
+
+Be natural and conversational like ChatGPT. Ask follow-up questions, provide context, and help the user make good financial decisions."""
+                    }
+                ]
+                
+                # Add conversation history (excluding current question)
+                for msg in st.session_state.chat_messages_page3[:-1]:
+                    messages.append({
+                        "role": msg['role'],
+                        "content": msg['content']
+                    })
+                
+                # Add current question with full context
+                messages.append({
+                    "role": "user",
+                    "content": context
+                })
+                
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=messages,
+                    functions=[update_targets_function],
+                    function_call="auto",
+                    temperature=0.7,
+                    max_tokens=1500
+                )
+                
+                response_message = response.choices[0].message
+                
+                # Handle function call
+                if response_message.function_call:
+                    function_name = response_message.function_call.name
+                    
+                    # Debug: show that function was called
+                    st.write(f"DEBUG: Function called: {function_name}")
+                    
+                    try:
+                        function_args = json.loads(response_message.function_call.arguments)
+                        st.write(f"DEBUG: Function args: {function_args}")
+                    except json.JSONDecodeError:
+                        ai_response = "❌ I had trouble processing that request. Could you try rephrasing?"
+                        function_args = None
+                    
+                    if function_name == "update_targets" and function_args:
+                        targets_to_update = None
+                        
+                        if 'targets' in function_args and isinstance(function_args['targets'], dict):
+                            targets_to_update = function_args['targets']
+                        elif isinstance(function_args, dict) and all(isinstance(v, (int, float)) for v in function_args.values()):
+                            targets_to_update = function_args
+                        
+                        # Check if targets_to_update is valid and not empty
+                        if targets_to_update and len(targets_to_update) > 0:
+                            period_key = st.session_state.current_target_period
+                            if period_key not in st.session_state.targets[st.session_state.target_period_type]:
+                                st.session_state.targets[st.session_state.target_period_type][period_key] = {}
+                            
+                            # Update targets
+                            for category, amount in targets_to_update.items():
+                                st.session_state.targets[st.session_state.target_period_type][period_key][category] = amount
+                                widget_key = f"target_{category}_{period_key}"
+                                if widget_key in st.session_state:
+                                    del st.session_state[widget_key]
+                            
+                            # Save to project
+                            if st.session_state.current_project and st.session_state.current_project != "Current Session":
+                                save_targets_to_project(st.session_state.current_project)
+                            
+                            # Create function result
+                            updates_text = ", ".join([f"{cat}: £{amt:.2f}" for cat, amt in targets_to_update.items()])
+                            function_result = json.dumps({
+                                "success": True,
+                                "updated_targets": targets_to_update,
+                                "period": period_key,
+                                "message": f"Successfully updated targets: {updates_text}"
+                            })
+                            
+                            # Make follow-up call with better prompt
+                            try:
+                                st.write("DEBUG: Making follow-up call...")
+                                follow_up_messages = messages + [
+                                    {
+                                        "role": "assistant",
+                                        "content": None,
+                                        "function_call": {
+                                            "name": "update_targets",
+                                            "arguments": response_message.function_call.arguments
+                                        }
+                                    },
+                                    {
+                                        "role": "function",
+                                        "name": "update_targets",
+                                        "content": function_result
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": "Great! Can you confirm what you just updated and provide a friendly summary?"
+                                    }
+                                ]
+                                
+                                follow_up_response = client.chat.completions.create(
+                                    model="gpt-4o-mini",
+                                    messages=follow_up_messages,
+                                    temperature=0.7,
+                                    max_tokens=1500
+                                )
+                                
+                                ai_response = follow_up_response.choices[0].message.content
+                                st.write(f"DEBUG: Follow-up response: {ai_response}")
+                                
+                                # If still no response, create a good default
+                                if not ai_response or not ai_response.strip():
+                                    st.write("DEBUG: No AI response, using fallback")
+                                    ai_response = f"✅ Perfect! I've updated your {st.session_state.target_period_type} budget targets for {period_key}:\n\n"
+                                    for cat, amt in targets_to_update.items():
+                                        ai_response += f"• **{cat}**: £{amt:.2f}\n"
+                                    ai_response += "\nYour targets are now saved and you can see the updated progress bars above! 📊"
+                                    
+                                    if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                        ai_response += "\n\n💡 **Tip**: Save your data as a project to keep these targets permanently."
+                                        
+                            except Exception as e:
+                                # Fallback if follow-up call fails
+                                st.write(f"DEBUG: Follow-up call failed: {str(e)}")
+                                ai_response = f"✅ I've updated your budget targets for {period_key}:\n\n{updates_text}\n\nYour targets are now saved! Check the progress bars above to see how you're doing. 📊"
+                                if not st.session_state.current_project or st.session_state.current_project == "Current Session":
+                                    ai_response += "\n\n💡 Save your data as a project to keep these targets."
+                        else:
+                            # AI called function but didn't provide targets - it might be confused about the period
+                            st.write(f"DEBUG: No valid targets provided. targets_to_update = {targets_to_update}")
+                            ai_response = f"❌ I couldn't determine which targets to update. The current period is **{st.session_state.target_period_type} - {st.session_state.current_target_period}**.\n\nPlease be specific, for example:\n- 'Set Groceries to £300 for {st.session_state.current_target_period}'\n- 'Update Transport to £150'\n\nMake sure the period type matches what you're asking for (you're currently viewing **{st.session_state.target_period_type}** targets)."
+                    else:
+                        ai_response = "❌ I had trouble understanding that request. Could you try rephrasing?"
+                else:
+                    ai_response = response_message.content if response_message.content else "I'm here to help with your budgets. What would you like to know?"
+                
+                st.session_state.chat_messages_page3.append({
+                    'role': 'assistant',
+                    'content': ai_response
+                })
+                
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+        else:
+            st.error("OpenAI API key not configured")
 
 # DEBUG: Test helper functions
 with st.expander("🧪 Debug: Test Helper Functions", expanded=False):
