@@ -1430,14 +1430,14 @@ with st.sidebar:
     st.divider()
 
     # Navigation
-    if st.button("📊 Summarize",
+    if st.button("📊 Summarise",
                  type="primary" if st.session_state.current_page == "summarize"
                  else "secondary",
                  use_container_width=True):
         st.session_state.current_page = "summarize"
         st.rerun()
 
-    if st.button("📈 Analyze",
+    if st.button("📈 Analyse",
                  type="primary" if st.session_state.current_page == "analyze"
                  else "secondary",
                  use_container_width=True,
@@ -1662,7 +1662,7 @@ with st.sidebar:
 
 # PAGE 1: SUMMARIZE (Import & View)
 if st.session_state.current_page == "summarize":
-    st.title("AI Spending Analyzer")
+    st.title("AI Spending Organiser")
     
     # Projects section - always visible
     st.subheader("📁 Projects")
@@ -1838,7 +1838,7 @@ if st.session_state.current_page == "summarize":
 
         else:
             # Step 2: Review and edit categories
-            st.subheader("📊 Categorized Transactions")
+            st.subheader("📊 Categorised Transactions")
             st.caption(
                 "Review the AI categorization. You can edit categories or add custom ones in the sidebar."
             )
@@ -1882,7 +1882,7 @@ if st.session_state.current_page == "summarize":
                 st.session_state.summary = None
             
             # Refresh categorization button
-            if st.button("🔄 Refresh Categorization", help="Re-run AI categorization on all transactions"):
+            if st.button("🔄 Refresh Categorisation", help="Re-run AI categorization on all transactions"):
                 with st.spinner("Re-categorizing transactions..."):
                     categorized_df = categorize_transactions(edited_df.copy())
                     if categorized_df is not None:
@@ -1898,9 +1898,9 @@ if st.session_state.current_page == "summarize":
 
             # Step 3: Generate analysis and insights
             if not st.session_state.analyzed:
-                st.info("📈 Ready to analyze your spending patterns")
+                st.info("📈 Ready to analyse your spending patterns")
 
-                if st.button("🔍 Analyze Now", type="primary"):
+                if st.button("🔍 Analyse Now", type="primary"):
                     with st.spinner("Generating insights..."):
                         # Generate summary from categorized data
                         summary = generate_spending_summary(edited_df.copy())
@@ -2019,7 +2019,7 @@ elif st.session_state.current_page == "analyze":
     col_title, col_project = st.columns([2, 1])
     
     with col_title:
-        st.title("Analyze & Understand")
+        st.title("Analyse & Understand")
     
     with col_project:
         # Refresh projects list
