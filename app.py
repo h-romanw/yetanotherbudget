@@ -1306,38 +1306,43 @@ st.markdown("""
     /* Chat input field */
     .stChatInput,
     .stChatInput > div {
-        background-color: white !important;
-        background: white !important;
+        background-color: #e2999b !important;
+        background: #e2999b !important;
         border-radius: 20px !important;
-        border: 2px solid #e0e0e0 !important;
+        border: 1px solid #52181E !important;
     }
     
     .stChatInput:focus-within,
     .stChatInput:focus-within > div {
-        border-color: #832632 !important;
-        box-shadow: 0 0 0 3px rgba(131, 38, 50, 0.1) !important;
+        border-color: #52181E !important;
+        box-shadow: 0 0 0 1px #52181E !important;
     }
     
-    /* Chat send button */
-    .stChatInput button,
-    .stChatInput button:hover,
-    .stChatInput button:focus {
-        background-color: #832632 !important;
-        background: #832632 !important;
-        border-radius: 50% !important;
-        width: 36px !important;
-        height: 36px !important;
+    /* Chat input textarea */
+    .stChatInput textarea {
+        background-color: #e2999b !important;
+        color: #000000 !important;
+    }
+    
+    /* Chat send button - blend with input */
+    .stChatInput button {
+        background-color: #e2999b !important;
+        background: #e2999b !important;
         border: none !important;
+        border-radius: 0 !important;
     }
     
     .stChatInput button:hover {
-        background-color: #9a2d3d !important;
-        background: #9a2d3d !important;
+        background-color: #CE6A70 !important;
+        background: #CE6A70 !important;
     }
     
-    .stChatInput button svg,
-    .stChatInput button path {
-        fill: white !important;
+    .stChatInput button svg {
+        fill: #52181E !important;
+    }
+    
+    .stChatInput button:hover svg {
+        fill: #ffffff !important;
     }
     
 </style>
