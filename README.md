@@ -4,12 +4,22 @@
 2. [Installation and running the app locally](#2-installation-and-running-the-app-locally) 
 3. [My Product Development Process](#3-my-product-development-process)
 4. [Product Walkthrough](#4-product-walkthrough)
-[Troubleshooting](#troubleshooting)
+5. [Troubleshooting](#5-troubleshooting)
 
 # 1 Overview
 
 Yet Another Budget (YAnB) is project-based, AI-powered spending analyser and budgeting tool for young professionals, small businesses and project planners. YAnB allows users to upload spending data and have their transactions automatically categorised by AI, as well as generate a written summary of their spending behaviour and basic charts. Users can then use an integrated chatbot to query the data further, as well as see visualisations of their spending by category and net balance over time. Finally, users can set spending targets for categories at different time horizons, or have the chatbot suggest and implement budgets in the GUI for them based on uploaded data and expressed preferences.
 
+At the core of YAnB are projects, which aim to deliver the feature depth of more complex budgeting toos with the flexibility to meet a wider range of real-world use cases. A project is simply a running balance sheet of uploaded transactions, with relevant categories, budget targets/timeframes, and chat history saved alongside. A project could be:
+- A bank account.
+- A fixed-term event or period with expected spend amounts across different categories.
+- A new business venture.
+- A dependent or family member's expenses for which the user is responsible.
+- A marketing campaign for a product launch.
+- A running tally of shared expenses among friends.
+- ...or anything else, really!
+
+Projects integrate seamlessly with the AI features, allowing the AI chat to act as a spending summariser and financial coach in setting targets, determining appropriate categories and assigning transactions to them.
 
 # 2 Installation and running the app locally
 
@@ -26,27 +36,34 @@ To run the app locally, start by cloning the main branch. Ensure that you are us
 <img width="3395" height="1885" alt="IMG_8493" src="https://github.com/user-attachments/assets/e510a627-79e9-46a6-a5da-ce99e589c867" />
 Prior to starting the actual build for this app, it was my goal to follow a user-centred product design approach building off of my postgrad education and time working in fintech. Often using pen and paper, I followed the below approach.
 
-## 3.1 The user and the problem
-I started this project by 
+## 3.1 The user and product strategy
+I started this project by identifying a niche within the broader category of people who use budgeting apps. From my personal experience, I found that many spending analysis/budgeting apps struggle to balance flexibility with usability, either offering deep data-based customisation but sacraficing rigidity in UX or opting for ease-of-use but limiting functionality to simple graph-based summarisation. I was particularly influenced by two back-to-back conversations with my partner, with whom I had recently opened a Monzo joint account. In summary, the two conversations were:
+- We were beginning to plan for our wedding, but were finding that no budgeting tools currently available allowed us to integrate a project-based budget with our exisiting bank-account-based budgeting.
+- Having just started working for an events agency, she was surprised that her business relied predominantly on spreadsheets to manage the budgets and balances available to their clients. This created additional overhead and made cooperation more cumbersome.
 
-## 3.2 Other apps and YAnB USPs
+Based on these, I felt inspired 
 
-## 3.3 MoSCoW feature planning
-### 3.3.1 MoSCoW
-### 3.3.2 Resources
-### 3.3.3 Estimation and Kanban
+### 3.1.1 Other apps and YAnB USPs
 
-## 3.4 UX design with Figma
+## 3.2 MoSCoW feature planning
+### 3.2.1 MoSCoW
+### 3.2.2 Resources
+### 3.2.3 Estimation and Kanban
 
-## 3.5 Feature backlog and execution
+## 3.3 UX design with Figma
+<img width="2880" height="2048" alt="image" src="https://github.com/user-attachments/assets/6085bfd2-abc2-46ee-b425-179bc60a61fc" />
+[My Figma design file can be found here](https://www.figma.com/design/Q7xI5WTuwnrUUFfF5wCmVp/YAnB-Designs?node-id=0-1&t=NP5KkBi38aNzWolN-1)
 
-## 3.6 Stagegating and final decisions
+## 3.4 Feature backlog and execution
 
-## 3.7 Next steps
+## 3.5 Stagegating and final decisions
+
+## 3.6 Next steps
+
+# 4 Product Walkthrough
 
 
-
-# Troubleshooting
+# 5 Troubleshooting
 ## Installation
 These are some issues I ran into during my time building the app. While I did test to ensure they should not affect local deployment before sharing, here are some common issues and solutions nonetheless:
 
